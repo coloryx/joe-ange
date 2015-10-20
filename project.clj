@@ -36,9 +36,10 @@
 
                  [clj-time "0.8.0"]
                  [com.andrewmcveigh/cljs-time "0.3.14"]
-                 [cljsjs/echarts "2.2.7-0"]
-                 [jayq "2.5.4"]
-                 
+                 ;[cljsjs/echarts "2.2.7-0"]
+                 ;[jayq "2.5.4"]
+                 [reagent-forms "0.5.1"]
+                 [cljsjs/react "0.13.1-0"] 
                  ]
 
   :min-lein-version "2.0.0"

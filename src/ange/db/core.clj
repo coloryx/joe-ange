@@ -140,7 +140,22 @@
         _ (println "data=" data)
         ]
     {:name ca :data data}))
-        
-        
 
-
+(defn mins-query [ca]
+  (println (format "mins-query, ca=%s" ca))
+  (let [[date cate os] (s/split ca #"-")
+        [y1 m1 d1] (rest (re-matches #"(\d{4})(\d{2})(\d{2})" date))
+        [y m d] (mapv ->int [y1 m1 d1])
+        cate (str "stat_" cate)
+        tran (fn [cate]
+               (case cate
+                 "iOS" :sum-ios
+                 "and" :sum-and
+                 "all" :sum))
+        begin (t/plus (t/date-time y m d 0 0 0) (t/hours -8)) ;08:00date
+        end (t/plus begin (t/days 1))
+        data (mq/with-collection db cate
+               (mq/find {:from {$gte begin $lt end}})
+               (mq/sort (array-map :from 1)))
+        data (mapv (tran os) data)]
+    {:name ca :data data}))

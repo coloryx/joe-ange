@@ -9,8 +9,72 @@
             [ajax.core :refer [GET POST]]
 
             [clojure.string :as s]
+            [cljs-time.core :as ct]
+            [cljs-time.periodic :as cp]
+            [cljs-time.format :as cf]
+            [reagent-forms.core :as rf]
+
             )
   (:import goog.History))
+
+(defn parse-date [date] (cf/parse (cf/formatter "yyyy-MM-dd") date))
+(defn unparse-date [date] (cf/unparse (cf/formatter "yyyy-MM-dd") date))
+(defn period-date [from to]
+  (mapv unparse-date
+        (take (inc (ct/in-days (ct/interval (parse-date from) (parse-date to))))
+              (cp/periodic-seq (parse-date from) (ct/days 1)))))
+(def today (unparse-date (ct/now)))
+(def yesterday (unparse-date (ct/plus (ct/now) (ct/days -1))))
+(def ylastweek (unparse-date (ct/plus (ct/now) (ct/days -8))))
+
+(defn unparse-date2 [date] (cf/unparse (cf/formatter "HH:mm") date))
+(defn parse-date2 [date] (cf/parse (cf/formatter "yyyy-MM-dd-HH:mm") date))
+(defn period-date2 [from to]
+  (mapv unparse-date2
+        (take (/ (* 24 60) 10)
+              (cp/periodic-seq (parse-date2 from) (ct/minutes 10)))))
+(def period-10mins-oneday (period-date2 "2015-09-10-00:00" "2015-09-10-23:50"))
+
+(defn date-component [title value callback]
+  [:input {:type "date"
+           :value @value
+           :on-change (fn [e] 
+                        (reset! value (-> e .-target .-value))
+                        (callback))}])
+
+(defn select-component
+  ([value selects]
+   [:select
+    {:value @value
+     :on-change (fn [e] (reset! value (-> e .-target .-value)))}
+    (for [[text v] selects]
+      [:option {:value v} text])])
+  ([value selects group]
+   [:select
+    {:value @value
+     :on-change (fn [e] (reset! value (-> e .-target .-value)))}
+    (for [[label ss] selects]
+      [:optgroup {:label label}
+       (for [[text v] ss] 
+         [:option {:value v} text])])]))
+
+(defn select-callback-component
+  ([value selects callback]
+   [:select
+    {:value @value
+     :on-change (fn [e] (reset! value (-> e .-target .-value)) (callback))}
+    (for [[text v] selects]
+      [:option {:value v} text])])
+  ([value selects callback group]
+   [:select
+    {:value @value
+     :on-change (fn [e] (reset! value (-> e .-target .-value)) (callback))}
+    (for [[label ss] selects]
+      [:optgroup {:label label}
+       (for [[text v] ss] 
+         [:option {:value v} text])])]))
+
+;; before are some public components
 
 (defn nav-link [uri title page collapsed?]
   [:li {:class (when (= page (session/get :page)) "active")}
@@ -43,7 +107,9 @@
           [nav-link "#/rank" "Rank" :rank collapsed?]
           [nav-link "#/search" "Search" :search collapsed?]
           [nav-link "#/day" "Day" :day collapsed?]
-          [nav-link "#/ext" "Ext" :ext collapsed?]
+          [nav-link "#/mins" "Mins" :mins collapsed?]
+          [nav-link "#/test" "Test" :test collapsed?]
+          ;[nav-link "#/todos" "Todos" :todos collapsed?]
           ]]]])))
 
 (defn about-page []
@@ -67,42 +133,10 @@
        [:div {:dangerouslySetInnerHTML
               {:__html (md->html docs)}}]]])])
 
-(defn date-component [title value f]
-  [:input {:type "date"
-           :value @value
-           :on-change (fn [e] 
-                        (reset! value (-> e .-target .-value))
-                        (f))}])
-
-(defn alone-select-component [value f arr]
-  [:select
-   {:on-change (fn [e]
-                 (reset! value (-> e .-target .-value))
-                 (f))}
-   (for [[val text] arr]
-     [:option {:value val} text])])
-
-(defn linked-select-component [value arr]
-  [:select
-   {:on-change (fn [e]
-                 (reset! value (-> e .-target .-value)))}
-   (for [[text val] arr]
-     [:option {:value val} text])])
-
-(defn linked-group-select-component [value arr]
-  [:select
-   {:on-change (fn [e]
-                 (reset! value (-> e .-target .-value)))}
-   (for [[label a] arr]
-     [:optgroup {:label label}
-      (for [[text val] a]
-        [:option {:value val} text])])])
-
 (defn rank-page []
   (let [stuff (r/atom [])
-        ;date (r/atom (f/unparse (f/formatters :year-month-day) (l/local-now))); TODO
-        date (r/atom "2015-10-11")
-        cate (r/atom "video")
+        date (r/atom yesterday)
+        cate (r/atom "rank200_video_station_create")
         get-stuff (fn [] 
                     (GET "/rank" 
                          {:handler (fn [response] (reset! stuff response))
@@ -113,9 +147,12 @@
 
         [date-component "Date: " date get-stuff]
 
-        [alone-select-component cate get-stuff [["rank200_video_station_create" "被照做的前200名"]
-                                                ["rank200_video_fav" "被收藏的前200名"]
-                                                ["rank200_video_play_onweb" "网页端播放的前200名"]]]
+        [select-callback-component 
+         cate 
+         [["被照做的前200名" "rank200_video_station_create"]
+          ["被收藏的前200名" "rank200_video_fav"]
+          ["网页端播放的前200名" "rank200_video_play_onweb"]]
+         get-stuff]
 
         [:div
          [:table#rank-table.table.table-bordered.table-striped.table-condensed.table-responsive
@@ -133,7 +170,7 @@
 
 (defn search-page []
   (let [stuff (r/atom nil)
-        date (r/atom "2015-10-11")
+        date (r/atom yesterday)
         cate (r/atom "scene")
         get-stuff (fn []
                     (GET "/search"
@@ -148,9 +185,12 @@
 
         [date-component "Date: " date get-stuff]
 
-        [alone-select-component cate get-stuff [["video" "搜索视频"]
-                                                ["scene" "搜索视频素材"]
-                                                ["stdscene" "搜索标准素材库"]]]
+        [select-callback-component 
+         cate 
+         [["搜索视频" "video"]
+          ["搜索视频素材" "scene"]
+          ["搜索标准素材库" "stdscene"]] 
+         get-stuff]
 
         [:div
          [:table#rank-table.table.table-bordered.table-striped.table-condensed.table-responsive
@@ -163,7 +203,6 @@
                 [:tr
                  [:td (second e)]
                  [:td (first e)]])))]]
-
         ]])))
 
 ;; day-page
@@ -172,93 +211,120 @@
 
 (defn day-selects1-component [a b c d + --]
   [:div
-   [linked-select-component a [["用户关注" "user_follow"]
-                               ["用户取消关注" "user_unfollow"]
-                               ["视频赞" "video_like"]
-                               ["视频收藏" "video_fav"]
-                               ["视频评论" "video_comment"]
-                               ["api访问量" "all_access_api"]]]
-   [linked-select-component b [["次数" "count"]
-                               ["人数" "user"]
-                               ["被操作数" "target"]]]
-   [linked-select-component c [["all" "all"]
-                               ["android" "and"]
-                               ["iOS" "iOS"]]]
-   [linked-group-select-component d [["Group1-all" [["all" "all"]]]
-                                     ["Group2-iOS" [["all" "all"]
-                                                    ["3.2.0" "3.2.0"]
-                                                    ["3.1.9" "3.1.9"]]]
-                                     ["Group3-android" [["all" "all"]
-                                                        ["3.6.9" "3.6.9"]
-                                                        ["3.6.8" "3.6.8"]]]]]
+   [select-component 
+    a 
+    [["用户关注" "user_follow"]
+     ["用户取消关注" "user_unfollow"]
+     ["视频赞" "video_like"]
+     ["视频收藏" "video_fav"]
+     ["视频评论" "video_comment"]
+     ["api访问量" "all_access_api"]]]
+   [select-component 
+    b
+    [["次数" "count"]
+     ["人数" "user"]
+     ["被操作数" "target"]]]
+   [select-component 
+    c 
+    [["all" "all"]
+     ["android" "and"]
+     ["iOS" "iOS"]]]
+   [select-component 
+    d 
+    [["Group1-all" [["all" "all"]]]
+     ["Group2-iOS" [["all" "all"]
+                    ["3.2.0" "3.2.0"]
+                    ["3.1.9" "3.1.9"]]]
+     ["Group3-android" [["all" "all"]
+                        ["3.6.9" "3.6.9"]
+                        ["3.6.8" "3.6.8"]]]]
+    "group"]
    [button-component "+" +]
    [button-component "--" --]
    ])
 
 (defn day-selects2-component [a b c d + --]
   [:div
-   [linked-group-select-component a [["Group1" [["视频播放" "video_play"]]]
-                                     ["Group2" [["照做" "samples"]
-                                                ["视频成功创建" "create"]
-                                                ["影集成功创建" "album_create"]
-                                                ["大片成功创建" "film_create"]
-                                                ["短片成功创建" "video_create"]]]
-                                     ["Group3" [["短片自己创作" "video_free"]
-                                                ["短片模版照做" "video_sample"]
-                                                ["短片广场照做" "video_station"]
-                                                ["大片自己创作" "film_free"]
-                                                ["大片模版照做" "film_sample"]
-                                                ["大片广场照做" "film_station"]]]
-                                     ["Group4" [["成功分享" "share"]
-                                                ["短片成功分享" "video_share_2"]
-                                                ["影集成功分享" "album_share_2"]
-                                                ["大片成功分享" "film_share"]]]
-                                     ["Group5" [["新用户创建" "newuser_create"]]]
-                                     ["Group6" [["短片创建" "video_batch_create"]
-                                                ["短片分享" "video_share"]
-                                                ["影集分享" "album_share"]
-                                                ["影集创建" "album_batch_create"]
-                                                ["素材创建" "scene_batch_create"]]]
-                                     ["Group7" [["短片热门播放" "video_play_place_digest"]
-                                                ["短片最新播放" "video_play_place_timeline"]
-                                                ["短片剧组播放" "video_play_place_post"]
-                                                ["短片关注播放" "video_play_place_friends"]]]
-                                     ["Group8" [["照做热门" "comply_create_place_digest"]
-                                                ["照做最新" "comply_create_place_timeline"]
-                                                ["照做剧组" "comply_create_place_post"]
-                                                ["照做关注" "comply_create_place_friends"]]]]]
-   [linked-select-component b [["次数" "count"]
-                               ["人数" "user"]
-                               ["被操作数" "target"]]]
-   [linked-select-component c [["all" "all"]
-                               ["android" "and"]
-                               ["iOS" "iOS"]]]
-   [linked-group-select-component d [["Group1-all" [["all" "all"]]]
-                                     ["Group2-iOS" [["all" "all"]
-                                                    ["3.2.0" "3.2.0"]
-                                                    ["3.1.9" "3.1.9"]]]
-                                     ["Group3-android" [["all" "all"]
-                                                        ["3.6.9" "3.6.9"]
-                                                        ["3.6.8" "3.6.8"]]]]]
+   [select-component 
+    a 
+    [["Group1" [["视频播放" "video_play"]]]
+     ["Group2" [["照做" "samples"]
+                ["视频成功创建" "create"]
+                ["影集成功创建" "album_create"]
+                ["大片成功创建" "film_create"]
+                ["短片成功创建" "video_create"]]]
+     ["Group3" [["短片自己创作" "video_free"]
+                ["短片模版照做" "video_sample"]
+                ["短片广场照做" "video_station"]
+                ["大片自己创作" "film_free"]
+                ["大片模版照做" "film_sample"]
+                ["大片广场照做" "film_station"]]]
+     ["Group4" [["成功分享" "share"]
+                ["短片成功分享" "video_share_2"]
+                ["影集成功分享" "album_share_2"]
+                ["大片成功分享" "film_share"]]]
+     ["Group5" [["新用户创建" "newuser_create"]]]
+     ["Group6" [["短片创建" "video_batch_create"]
+                ["短片分享" "video_share"]
+                ["影集分享" "album_share"]
+                ["影集创建" "album_batch_create"]
+                ["素材创建" "scene_batch_create"]]]
+     ["Group7" [["短片热门播放" "video_play_place_digest"]
+                ["短片最新播放" "video_play_place_timeline"]
+                ["短片剧组播放" "video_play_place_post"]
+                ["短片关注播放" "video_play_place_friends"]]]
+     ["Group8" [["照做热门" "comply_create_place_digest"]
+                ["照做最新" "comply_create_place_timeline"]
+                ["照做剧组" "comply_create_place_post"]
+                ["照做关注" "comply_create_place_friends"]]]]
+    "group"]
+   [select-component
+    b 
+    [["次数" "count"]
+     ["人数" "user"]
+     ["被操作数" "target"]]]
+   [select-component
+    c 
+    [["all" "all"]
+     ["android" "and"]
+     ["iOS" "iOS"]]]
+   [select-component 
+    d 
+    [["Group1-all" [["all" "all"]]]
+     ["Group2-iOS" [["all" "all"]
+                    ["3.2.0" "3.2.0"]
+                    ["3.1.9" "3.1.9"]]]
+     ["Group3-android" [["all" "all"]
+                        ["3.6.9" "3.6.9"]
+                        ["3.6.8" "3.6.8"]]]]
+    "group"]
    [button-component "+" +]
    [button-component "--" --]
    ])
 
 (defn day-selects3-component [a b c d + --]
   [:div
-   [linked-select-component a [["打开页面" "play"]
-                               ["点击下载" "download"]
-                               ["转化率(下载／打开)" "ratio"]]]
-   [linked-select-component b [["all" "all"]
-                               ["iOS" "ios"]
-                               ["android" "android"]]]
-   [linked-select-component c [["all" "all"]
-                               ["微信" "mm"]
-                               ["QQ" "qq"]]]
-   [linked-select-component d [["all" "all"]
-                               ["短片" "video"]
-                               ["影集" "album"]
-                               ["大片" "film"]]]
+   [select-component
+    a 
+    [["打开页面" "play"]
+     ["点击下载" "download"]
+     ["转化率(下载／打开)" "ratio"]]]
+   [select-component 
+    b 
+    [["all" "all"]
+     ["iOS" "ios"]
+     ["android" "android"]]]
+   [select-component 
+    c
+    [["all" "all"]
+     ["微信" "mm"]
+     ["QQ" "qq"]]]
+   [select-component 
+    d 
+    [["all" "all"]
+     ["短片" "video"]
+     ["影集" "album"]
+     ["大片" "film"]]]
    [button-component "+" +]
    [button-component "--" --]
    ])
@@ -271,15 +337,16 @@
 
 (defn graph [config id]
   [:div
-   [:div {:id id :style {:min-width "310px" :max-width "800px"
-                         :height "400px" :margin "0 auto"}}]
+   [:div {:id id 
+          :style {:min-width "310px" :max-width "2000px"
+                  :height "400px" :margin "0 auto"}}]
    [graph-data config id]])
 
-(defn chart-unity-component [selects-component getstring graph-id ia ib ic id]
+(defn chart-unity-component [selects-component getstring graph-id graph-title ia ib ic id]
   (let [stuff (r/atom [])
 
-        from (r/atom "2015-10-09")
-        to (r/atom "2015-10-14")
+        from (r/atom ylastweek)
+        to (r/atom yesterday)
         a (r/atom ia)
         b (r/atom ib)
         c (r/atom ic)
@@ -289,14 +356,14 @@
 
         config (r/atom
                  {:chart {:type "line"}
-                  :title {:text "xx-yy-zz"
+                  :title {:text graph-title
                           :x -20}
-                  :subtitle {:text "aa-bb-cc"
+                  :subtitle {:text ""
                              :x -20}
-                  :xAxis {:categories ["day1" "day2" "day3"]}
+                  :xAxis {:categories []}
                   :yAxis {:title {:text "数量"}
                           :plotLines [{:value 0 :width 1 :color "#808080"}]}
-                  :tooltip {:valueSuffix ""}
+                  :tooltip {:valueSuffix "个"}
                   :legend {:layout "vertical"
                            :align "right"
                            :verticalAlign "middle"
@@ -310,9 +377,10 @@
                           :handler (fn [response]
                                      (reset! stuff response)
                                      (debug/dbg @stuff)
-                                     (swap! config assoc :series 
-                                            (vec (for [{name "name" data "data"} @stuff]
-                                                   {:name name :data data}))))}))
+                                     (swap! config assoc :series (vec (for [{name "name" data "data"} @stuff]
+                                                                        {:name name :data data})))
+                                     (swap! config assoc-in [:xAxis :categories] (period-date @from @to))
+                                     )}))
 
         add (fn []
               (let [ca (s/join "-" [@a @b @c @d])]
@@ -336,77 +404,307 @@
   (fn []
     [:div.container
      [:div.row
-      [chart-unity-component day-selects1-component "day" "graph1" "user_follow" "count" "all" "all"]
-      [chart-unity-component day-selects2-component "day" "graph2" "video_play" "count" "all" "all"]
-      [chart-unity-component day-selects3-component "access" "graph3" "play" "all" "all" "all"]
+      [chart-unity-component day-selects1-component "day" "day-graph1" "社区活跃度" "user_follow" "count" "all" "all"]
+      [chart-unity-component day-selects2-component "day" "day-graph2" "视频播放分享创建量" "video_play" "count" "all" "all"]
+      [chart-unity-component day-selects3-component "access" "day-graph3" "渠道" "play" "all" "all" "all"]
       ]]))
 
-;ext
-;(defonce chart-config 
-;(r/atom
-;{:chart {:type "line"}
-;:title {:text "Monthly Average Temperature"
-;:x -20}
-;:subtitle {:text "Source: WorldClimate.com"
-;:x -20}
-;:xAxis {:categories ["Jan" "Feb" "Mar" "Apr" "May" "Jun"
-;"Jul" "Aug" "Sep" "Oct" "Nov" "Dec"]}
-;:yAxis {:title {:text "Temperature (°C)"}
-;:plotLines [{:value 0 :width 1 :color "#808080"}]}
-;:tooltip {:valueSuffix "°C"}
-;:legend {:layout "vertical"
-;:align "right"
-;:verticalAlign "middle"
-;:borderWidth 0}
-;:series [{:name "Tokyo"
-;:data [7.0, 6.9, 9.5, 14.5, 18.2, 21.5, 25.2, 26.5, 23.3, 18.3, 13.9, 9.6]}
-;{:name "New York"
-;:data [-0.2, 0.8, 5.7, 11.3, 17.0, 22.0, 24.8, 24.1, 20.1, 14.1, 8.6, 2.5]}
-;{:name "Berlin"
-;:data [-0.9, 0.6, 3.5, 8.4, 13.5, 17.0, 18.6, 17.9, 14.3, 9.0, 3.9, 1.0]}
-;{:name "London"
-;:data [5.9, 4.2, 5.7, 8.5, 11.9, 15.2, 17.0, 16.6, 14.2, 10.3, 6.6, 4.8]}]}))
+;; mins
 
-;(def all (r/atom []))
-;(def new (r/atom ""))
+(defn mins-selects-component [date bi os date-callback bi-callback os-callback]
+  [:div
+   [date-component "" date date-callback]
+   [select-callback-component 
+    bi 
+    [["Group1" [["短片分享" "video_share"]
+                ["短片赞" "video_like"]
+                ["短片收藏" "video_fav"]
+                ["短片评论" "video_comment"]
+                ["短片播放" "video_play"]
+                ["短片创建" "video_batch_create"]
+                ["访问量" "all_access_api"]]]
+     ["Group2" [["影集分享" "album_share"]
+                ["影集创建" "album_batch_create"]
+                ["素材创建" "scene_batch_create"]]]
+     ["Group3" [["用户关注" "user_follow"]
+                ["用户取消关注" "user_unfollow"]]]
+     ["Group4" [["短片自己成功创作" "video_free"]
+                ["短片模版成功照做" "video_sample"]
+                ["短片广场成功照做" "video_station"]
+                ["大片自己成功创作" "film_free"]
+                ["大片模版成功照做" "film_sample"]
+                ["大片广场成功照做" "film_station"]
+                ["影集成功创建" "album_create"]]]
+     ["Group5" [["短片成功分享" "video_share_2"]
+                ["影集成功分享" "album_share_2"]
+                ["大片成功分享" "film_share"]]]
+     ["Group6" [["用户重启" "login_restart"]
+                ["用户重装" "login_reinstall"]
+                ["用户首次安装" "login_registered"]
+                ["用户升级" "login_upgrade"]]]
+     ["Group7" [["短片热门播放" "video_play_place_digest"]
+                ["短片最新播放" "video_play_place_timeline"]
+                ["短片剧组播放" "video_play_place_post"]
+                ["短片关注播放" "video_play_place_friends"]]]]
+    bi-callback "group"]
+   [select-callback-component
+    os 
+    [["all" "all"]
+     ["android" "and"]
+     ["iOS" "iOS"]]
+    os-callback]
+   ])
 
-;(defn input []
-;[:div
-;[:input {:type "text"
-;:value @new
-;:on-change #(reset! new (-> % .-target .-value))}]
-;[:input {:type "button"
-;:value "add"
-;:on-click #((swap! all conj (int @new))
-;(reset! new "")
-;(swap! chart-config assoc :series [{:name "what" :data @all}]))}]])
+(def mins-radio-component-head
+  [:div
+   [:input {:field :radio :value today :name :foo} "今天"]
+   [:input {:field :radio :value yesterday :name :foo} "昨天"]])
 
-;(defn lister []
-;[:ul
-;(for [item @all]
-;[:li item])])
+(defn s1 [date]
+  (unparse-date (ct/plus (parse-date date) (ct/days -1))))
 
-;(defn graph-data []
-;(js/$ (fn []
-;(debug/println "called graph! gaocong")
-;(.highcharts (js/$ "#example")
-;(clj->js @chart-config))))
-;[:p @chart-config])
+(defn s7 [date]
+  (unparse-date (ct/plus (parse-date date) (ct/days -7))))
 
-;(defn graph []
-;[:div [:h1 "The Graph..."]
-;[:div#example {:style {:min-width "310px" :max-width "800px"
-;:height "400px" :margin "0 auto"}}]
-;[graph-data]])
+(def mins-radio-component-bottom
+  [:div {:style {:text-align "center"}}
+   [:label "对比："]
+   [:input {:field :radio :value "s1" :name :baz} "前一日"]
+   [:input {:field :radio :value "s7" :name :baz} "上周同期"]])
 
-;(defn ext-page []
-;[:div
-;[input]
-;[lister]
-;[graph]])
+(defn mins-page []
+  (let [stuff (r/atom nil)
 
-(defn ext-page []
-  [:div "This is ext-page"])
+        radio (r/atom {:foo today})
+        radio2 (r/atom {:baz "s1"})
+
+        ;date1 (r/atom today)
+        date1 (r/cursor radio [:foo])
+        date2 (r/atom yesterday)
+        ;date2 (r/cursor radio2 [:baz])
+
+        bi1 (r/atom "video_share")
+        bi2 (r/atom "video_share")
+        os1 (r/atom "all")
+        os2 (r/atom "all")
+
+        config (r/atom
+                 {:chart {:type "line"}
+                  :title {:text "十分钟统计量"
+                          :x -20}
+                  :subtitle {:text ""
+                             :x -20}
+                  :xAxis {:categories period-10mins-oneday}
+                  :yAxis {:title {:text "数量"}
+                          :plotLines [{:value 0 :width 1 :color "#808080"}]}
+                  :tooltip {:valueSuffix "个"}
+                  :legend {:layout "vertical"
+                           :align "right"
+                           :verticalAlign "middle"
+                           :borderWidth 0}
+                  :series [{:name "sample"
+                            :data [1 2 3]}]})
+
+        get-stuff (fn []
+                    (debug/dbg (str "radio=" @radio))
+                    (debug/dbg (str "date1=" @date1)) ;; TODO date1 not sync with radio!
+                    (GET "/mins"
+                         {:params {:ca (s/join "," [(s/join "-" [(s/replace (:foo @radio) "-" "") @bi1 @os1])
+                                                    (s/join "-" [(s/replace @date2 "-" "") @bi2 @os2])])}
+                          :handler (fn [response]
+                                     (reset! stuff response)
+                                     ;(debug/dbg @stuff)
+                                     (swap! config assoc :series (vec (for [{name "name" data "data"} @stuff]
+                                                                        {:name name :data data})))
+                                     )}))
+
+        _ (add-watch radio :get get-stuff)
+        _ (add-watch date2 :get get-stuff)
+        _ (add-watch radio2 :get (fn []
+                                   (case (:baz @radio2)
+                                     "s1" (reset! date2 (s1 @date1))
+                                     "s7" (reset! date2 (s7 @date1)))))
+        ]
+    (fn []
+      [:div.container
+       [:div.row
+        [rf/bind-fields mins-radio-component-head radio]
+        [:label (str @radio)]
+
+        [graph config "mins-graph"]
+
+        [rf/bind-fields mins-radio-component-bottom radio2]
+        [:label (str @radio2)]
+        
+        [mins-selects-component date1 bi1 os1 
+         get-stuff
+         (fn [] (reset! bi2 @bi1) (get-stuff))
+         (fn [] (reset! os2 @os1) (get-stuff))]
+
+        [mins-selects-component date2 bi2 os2 get-stuff get-stuff get-stuff]
+
+        ]])))
+
+;; test
+
+;(defn atom-input [value]
+  ;[:input {:type "text"
+           ;:value @value
+           ;:on-change #(reset! value (-> % .-target .-value))}])
+
+;(defn test-page []
+  ;(let [val (r/atom "2015-10-11")]
+    ;(fn []
+      ;[:div
+       ;[atom-input val]
+       ;[atom-input val]
+       ;[date-component "" val inc]
+       ;[select-component val [["display1" "2015-10-11"]
+                              ;["display2" "2015-10-12"]]]
+       ;[select-component val [["group1" [["display1" "2015-10-11"]
+                                         ;["display2" "2015-10-12"]]]
+                              ;["group2" [["display3" "2015-10-12"]
+                                         ;["display4" "2015-10-14"]]]] "group"]
+       ;])))
+
+;(defn radio [label name value]
+  ;[:div.radio
+   ;[:label
+    ;[:input {:field :radio :name name :value value}]
+    ;label]])
+
+;(defn test-page []
+  ;(let [doc (atom {})]
+    ;(fn []
+      ;[:h3 "single-select buttons"]
+      ;[:div.btn-group {:field :single-select :id :unique.position}
+       ;[:button.btn.btn-default {:key :left} "Left"]
+       ;[:button.btn.btn-default {:key :middle} "Middle"]
+       ;[:button.btn.btn-default {:key :right} "Right"]]
+
+      ;[:h3 "single-select list"]
+      ;[:div.list-group {:field :single-select :id :pick-one}
+       ;[:div.list-group-item {:key :foo} "foo"]
+       ;[:div.list-group-item {:key :bar} "bar"]
+       ;[:div.list-group-item {:key :baz} "baz"]]
+      ;)))
+
+(def form
+  [:div
+   [:input {:field :radio :value :a :name :foo :id :radioselection} "foo"]
+   [:input {:field :radio :value :b :name :foo :id :radioselection} "bar"]
+   [:input {:field :radio :value :c :name :foo :id :radioselection} "baz"]])
+
+(defn test-page []
+  (let [doc (r/atom {:radioselection :b})]
+    (fn []
+      [:div
+       [rf/bind-fields form doc]
+       [:label (str @doc)]])))
+
+;; todos
+
+;(defonce todos (r/atom (sorted-map)))
+
+;(defonce counter (r/atom 0))
+
+;(defn add-todo [text]
+  ;(let [id (swap! counter inc)]
+    ;(swap! todos assoc id {:id id :title text :done false})))
+
+;(defn toggle [id] (swap! todos update-in [id :done] not))
+;(defn save [id title] (swap! todos assoc-in [id :title] title))
+;(defn delete [id] (swap! todos dissoc id))
+
+;(defn mmap [m f a] (->> m (f a) (into (empty m))))
+;(defn complete-all [v] (swap! todos mmap map #(assoc-in % [1 :done] v)))
+;(defn clear-done [] (swap! todos mmap remove #(get-in % [1 :done])))
+
+;(defonce init (do
+                ;(add-todo "Rename Cloact to Reagent")
+                ;(add-todo "Add undo demo")
+                ;(add-todo "Make all rendering async")
+                ;(add-todo "Allow any arguments to component functions")
+                ;(complete-all true)))
+
+;(defn todo-input [{:keys [title on-save on-stop]}]
+  ;(let [val (r/atom title)
+        ;stop #(do (reset! val "")
+                  ;(if on-stop (on-stop)))
+        ;save #(let [v (-> @val str clojure.string/trim)]
+                ;(if-not (empty? v) (on-save v))
+                ;(stop))]
+    ;(fn [props]
+      ;[:input (merge props
+                     ;{:type "text" :value @val :on-blur save
+                      ;:on-change #(reset! val (-> % .-target .-value))
+                      ;:on-key-down #(case (.-which %)
+                                      ;13 (save)
+                                      ;27 (stop)
+                                      ;nil)})])))
+
+;(def todo-edit (with-meta todo-input
+                 ;{:component-did-mount #(.focus (r/dom-node %))}))
+
+;(defn todo-stats [{:keys [filt active done]}]
+  ;(let [props-for (fn [name]
+                    ;{:class (if (= name @filt) "selected")
+                     ;:on-click #(reset! filt name)})]
+    ;[:div
+     ;[:span#todo-count
+      ;[:strong active] " " (case active 1 "item" "items") " left"]
+     ;[:ul#filters
+      ;[:li [:a (props-for :all) "All"]]
+      ;[:li [:a (props-for :active) "Active"]]
+      ;[:li [:a (props-for :done) "Completed"]]]
+     ;(when (pos? done)
+       ;[:button#clear-completed {:on-click clear-done}
+        ;"Clear completed " done])]))
+
+;(defn todo-item []
+  ;(let [editing (r/atom false)]
+    ;(fn [{:keys [id done title]}]
+      ;[:li {:class (str (if done "completed ")
+                        ;(if @editing "editing"))}
+       ;[:div.view
+        ;[:input.toggle {:type "checkbox" :checked done
+                        ;:on-change #(toggle id)}]
+        ;[:label {:on-double-click #(reset! editing true)} title]
+        ;[:button.destroy {:on-click #(delete id)}]]
+       ;(when @editing
+         ;[todo-edit {:class "edit" :title title
+                     ;:on-save #(save id %)
+                     ;:on-stop #(reset! editing false)}])])))
+
+;(defn todos-page [props]
+  ;(let [filt (r/atom :all)]
+    ;(fn []
+      ;(let [items (vals @todos)
+            ;done (->> items (filter :done) count)
+            ;active (- (count items) done)]
+        ;[:div
+         ;[:section#todoapp
+          ;[:header#header
+           ;[:h1 "todos"]
+           ;[todo-input {:id "new-todo"
+                        ;:placeholder "What needs to be done?"
+                        ;:on-save add-todo}]]
+          ;(when (-> items count pos?)
+            ;[:div
+             ;[:section#main
+              ;[:input#toggle-all {:type "checkbox" :checked (zero? active)
+                                  ;:on-change #(complete-all (pos? active))}]
+              ;[:label {:for "toggle-all"} "Mark all as complete"]
+              ;[:ul#todo-list
+               ;(for [todo (filter (case @filt
+                                    ;:active (complement :done)
+                                    ;:done :done
+                                    ;:all identity) items)]
+                 ;^{:key (:id todo)} [todo-item todo])]]
+             ;[:footer#footer
+              ;[todo-stats {:active active :done done :filt filt}]]])]
+         ;[:footer#info
+          ;[:p "Double-click to edit a todo"]]]))))
 
 ;;;
 
@@ -416,7 +714,9 @@
    :rank #'rank-page
    :search #'search-page
    :day #'day-page
-   :ext #'ext-page
+   :mins #'mins-page
+   :test #'test-page
+   ;:todos #'todos-page
    })
 
 (defn page []
@@ -441,8 +741,14 @@
 (secretary/defroute "/day" []
   (session/put! :page :day))
 
-(secretary/defroute "/ext" []
-  (session/put! :page :ext))
+(secretary/defroute "/mins" []
+  (session/put! :page :mins))
+
+(secretary/defroute "/test" []
+  (session/put! :page :test))
+
+;(secretary/defroute "/todos" []
+  ;(session/put! :page :todos))
 
 ;; -------------------------
 ;; History

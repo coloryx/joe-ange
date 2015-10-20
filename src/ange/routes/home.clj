@@ -27,7 +27,6 @@
   (GET "/rank" [date cate] (db/rank-query date cate))
   (GET "/search" [date cate] (db/search-query date cate))
   (GET "/day" [ca from to] (map #(db/day-query % from to) (s/split ca #",")))
-  (GET "/access" [ca from to] (do "access" (map #(db/day-access % from to) (s/split ca #","))))
+  (GET "/access" [ca from to] (map #(db/day-access % from to) (s/split ca #",")))
+  (GET "/mins" [ca] (map db/mins-query (s/split ca #",")))
   )
-  ;(POST "/send-message" request (save-message! request)))
-
