@@ -82,11 +82,8 @@
 (defn rank-query [date cate]
   (println "rank-query," date cate)
   (let [[yf mf df] (format-date date)
-        ;_ (println "ymd: " yf mf df)
         day (t/plus (t/date-time yf mf df 0 0 0) (t/hours -8) (t/days 1))
-        ;_ (println "day: " day)
         ret (mc/find-one-as-map db (str "stat_daily_" cate) {:day day})
-        ;_ (println "rank-query->" ret)
         ret2 (->> ret
                (remove #(#{:_id :day} (key %)))
                (sort #(> (val %1) (val %2))))
@@ -96,8 +93,6 @@
                             (str "http://cdn-web-qn.colorv.cn/"
                                  (get-in (mc/find-one-as-map db "video_logo_path" {:video_id vid}) [:info :logo_path])))))
                   ret2)
-        ;_ (println "rank-query2->" ret2)
-        ;_ (println "rank-query3->" ret3)
         ]
     ret3))
 
@@ -108,7 +103,6 @@
         ret (mc/find-one-as-map db (str "stat_daily_rank_query_word_" cate) {:day day})
         ret (:result ret)
         ret (seq (subvec ret 0 100)) ;;response is a seq
-        ;_ (println "ret=" ret)
         ]
     ret))
 
@@ -124,9 +118,7 @@
              (s/join "-" ["sum" st os version])
              (s/join "-" ["sum" st (trand os)]))
         kk (keyword ke)
-        ;_ (println "kk=" kk)
         data (qs- (str "stat_daily_" cate) kk from to)
-        ;_ (println "data=" data)
         ]
     {:name ca :data data}))
 
@@ -159,3 +151,233 @@
                (mq/sort (array-map :from 1)))
         data (mapv (tran os) data)]
     {:name ca :data data}))
+
+(defn ratio-query [ca from to]
+  (println (format "ratio-query, ca=%s, from=%s, to=%s" ca from to))
+  (let [[cate os version] (s/split ca #"-")
+        version (tran-version version)
+        [yf mf df] (format-date from)
+        [yt mt dt] (format-date to)
+        from (t/plus (t/date-time yf mf df 0 0 0) (t/hours -8) (t/days 1))
+        to (t/plus (t/date-time yt mt dt 0 0 0) (t/hours -8) (t/days 1))
+        ke (if version
+             (s/join "-" ["sum" "count" os version])
+             (s/join "-" ["sum" "count" (trand os)]))
+        k (keyword ke)
+        ke2 (if version
+              (s/join "-" ["sum" "user" os version])
+              (s/join "-" ["sum" "user" (trand os)]))
+        k2 (keyword ke2)
+        ]
+    (case cate
+      "newbie_video" (let [data1 (qs "stat_daily_login_registered" k from to)
+                           data2 (qs "stat_daily_video_create" k from to)
+                           data3 (qs "stat_daily_film_create" k from to)
+                           data4 (map + data2 data3)
+                           d (mapv pcs data1 data4)
+                           ]
+                       {:name ca :data d})
+      "newbie_active" (let [d1 (qs "stat_daily_active_newuser" k2 from to)
+                            d2 (qs "stat_daily_active_user" k2 from to)
+                            d (mapv pcs d1 d2)]
+                        {:name ca :data d})
+      "newbie_active_video_free_create" (let [d1 (qs "stat_daily_active_newuser_video_free_create" k2 from to)
+                                              d2 (qs "stat_daily_video_free" k from to)
+                                              d (mapv pcs d1 d2)]
+                                          {:name ca :data d})
+      "newbie_active_video_sample_create" (let [d1 (qs "stat_daily_active_newuser_video_sample_create" k2 from to)
+                                              d2 (qs "stat_daily_video_sample" k from to)
+                                              d (mapv pcs d1 d2)]
+                                          {:name ca :data d})
+      "newbie_active_video_station_create" (let [d1 (qs "stat_daily_active_newuser_video_station_create" k2 from to)
+                                              d2 (qs "stat_daily_video_station" k from to)
+                                              d (mapv pcs d1 d2)]
+                                          {:name ca :data d})
+      "newbie_active_film_create" (let [d1 (qs "stat_daily_active_newuser_film_create" k2 from to)
+                                              d2 (qs "stat_daily_film_create" k from to)
+                                              d (mapv pcs d1 d2)]
+                                          {:name ca :data d})
+      "newbie_active_album_create" (let [d1 (qs "stat_daily_active_newuser_album_create" k2 from to)
+                                              d2 (qs "stat_daily_album_create" k from to)
+                                              d (mapv pcs d1 d2)]
+                                          {:name ca :data d})
+      "per_video" (let [d1 (qs "stat_daily_video_create" k from to)
+                        d2 (qs "stat_daily_active_user" k2 from to)
+                        d (mapv pcs d1 d2)]
+                    {:name ca :data d})
+      "per_film" (let [data1 (qs "stat_daily_film_create" k from to)
+                       data2 (qs "stat_daily_active_user" k2 from to)
+                       d (mapv pcs data1 data2)]
+                   {:name ca :data d})
+      "per_album" (let [data1 (qs "stat_daily_album_create" k from to)
+                        data2 (qs "stat_daily_active_user" k2 from to)
+                        d (mapv pcs data1 data2)]
+                    {:name ca :data d})
+      "ratio_video_share" (let [data1 (qs "stat_daily_video_share_2" k from to)
+                                data2 (qs "stat_daily_video_create"  k from to)
+                                d (mapv pcs data1 data2)]
+                            {:name ca :data d})
+      "ratio_album_share" (let [data1 (qs "stat_daily_album_share_2" k from to)
+                                data2 (qs "stat_daily_album_create"  k from to)
+                                d (mapv pcs data1 data2)]
+                            {:name ca :data d})
+      "ratio_sample" (let [data1 (qs "stat_daily_samples" k from to)
+                           data2 (qs "stat_daily_video_create" k from to)
+                           data3 (qs "stat_daily_film_create" k from to)
+                           data4 (map + data2 data3)
+                           d (mapv pcs data1 data4)]
+                       {:name ca :data d})
+      "ratio_follow" (let [data1 (qs "stat_daily_user_follow" k from to)
+                           data2 (qs "stat_daily_active_user" k2 from to)
+                           d (mapv pcs data1 data2)]
+                       {:name ca :data d})
+      "ratio_like" (let [data1 (qs "stat_daily_video_like" k from to)
+                         data2 (qs "stat_daily_active_user" k2 from to)
+                         d (mapv pcs data1 data2)]
+                     {:name ca :data d})
+      {})))
+
+(defn mold-query [ca from to]
+  (println (format "querymold, ca=%s from=%s to=%s" ca from to))
+  (let [match (keyword ca)
+        [yf mf df] (format-date from)
+        [yt mt dt] (format-date to)
+        from (t/plus (t/date-time yf mf df 0 0 0) (t/hours -8) (t/days 1))
+        to (t/plus (t/date-time yt mt dt 0 0 0) (t/hours -8) (t/days 1))
+        data (qs2 "stat_daily_get_mold" match from to)
+        data (mapv count data)]
+    {:name (name match) :data data}))
+
+(defn mold-list-query [date cate]
+  (println (format "mold-list-query date=%s cate=%s" date cate))
+  (let [cate (keyword cate)
+        [year month day] (format-date date)
+        date (t/plus (t/date-time year month day) (t/hours -8) (t/days 1))
+        res (mc/find-one-as-map db "stat_daily_get_mold" {:day date})]
+    (seq (cate res))))
+
+(defn table-query [date]
+  (println (format "table-query date=%s" date))
+  (let  [[yf mf df] (format-date date)
+         day (t/plus (t/date-time yf mf df 0 0 0) (t/hours -8) (t/days 1))
+         active-user-ret (mc/find-one-as-map db "stat_daily_active_user" {:day day}) ;;把数据先缓存下来，后面慢慢取
+         video-free-ret (mc/find-one-as-map db "stat_daily_video_free" {:day day})
+         video-sample-ret (mc/find-one-as-map db "stat_daily_video_sample" {:day day})
+         video-station-ret (mc/find-one-as-map db "stat_daily_video_station" {:day day})
+         film-create-ret (mc/find-one-as-map db "stat_daily_film_create" {:day day})
+         album-create-ret (mc/find-one-as-map db "stat_daily_album_create" {:day day})
+         gf (fn [ret v pre] (get
+                              ret
+                              (keyword (str pre (s/replace v "." "_")))
+                              0))
+         cf (fn [v]
+              (let [active-user-count (gf active-user-ret v "sum-user-and-")
+                    video-free-count (gf video-free-ret v "sum-count-and-")
+                    video-sample-count (gf video-sample-ret v "sum-count-and-")
+                    video-station-count (gf video-station-ret v "sum-count-and-")
+                    video-count (+ video-free-count video-sample-count video-station-count)
+                    video-ratio (pcs video-count active-user-count)
+                    film-count (gf film-create-ret v "sum-count-and-")
+                    film-ratio (pcs film-count active-user-count)
+                    album-count (gf album-create-ret v "sum-count-and-")
+                    album-ratio (pcs album-count active-user-count)
+                    create-count (+ video-count film-count album-count)
+                    create-ratio (pcs create-count active-user-count)]
+                [v
+                 active-user-count
+                 video-free-count
+                 video-sample-count
+                 video-station-count
+                 video-count
+                 video-ratio
+                 film-count
+                 film-ratio
+                 album-count
+                 album-ratio
+                 create-count
+                 create-ratio
+                 ]))
+         ;_ (println "vs=" @and-versions)
+         ;res (map cf @and-versions)
+         res (map cf ["3.6.7" "3.6.6"]) ;; TODO
+         ;_ (println res)
+         ]
+    res))
+
+(defn sample-query [date os platform age_zone gender]
+  (println (format "sssss sample-query, date=%s, os=%s, platform=%s, age_zone=%s gender=%s"
+                   date os platform age_zone gender))
+  (let [[yf mf df] (format-date date)
+        day (t/plus (t/date-time yf mf df 0 0 0) (t/hours -8) (t/days 1))
+        _ (println "day=" day)
+        af (fn [e c d] (if (= "all" c)
+                         true
+                         (= c (get-in e [:user_info d]))))
+        bf (fn [e c d] (if (= "all" c)
+                         true
+                         (= (->int c) (get-in e [:user_info d]))))
+        pf (fn [v place] (->> (filter #(= place (get-in % [:user_info :place])) v)
+                           (map :count)
+                           (apply +)))
+        qf (fn [v] (->> v (map :count) (apply +)))
+        res (filter
+              (fn [e] (and (af e os :os)
+                           (af e platform :platform)
+                           (bf e age_zone :age_zone)
+                           (af e gender :gender)))
+              (:detail (mc/find-one-as-map db "stat_daily_active_user_detail" {:day day})))
+        ;_ (println "res=" res)
+        ret (->> (:detail (mc/find-one-as-map db "stat_daily_sample_detail" {:day day}))
+              (filter (fn [e] (and (af e os :os)
+                                   (af e platform :platform)
+                                   (bf e age_zone :age_zone)
+                                   (af e gender :gender))))
+              (group-by #(get-in % [:user_info :version]))
+              (map (fn [[k v]]
+                     ;(println "k=" k)
+                     ;(println "v=" v)
+                     ;(println "qf=" (qf v))
+                     (let [active-user (->> res
+                                         (filter (fn [x] (= k (get-in x [:user_info :version]))))
+                                         (map (comp (fnil long 0) :count))
+                                         (apply +))
+                           sample-all (qf v)]
+                       [k
+                        active-user
+                        (str sample-all " (" (pcs sample-all active-user) ")")
+                        (pf v "digest")
+                        (pf v "timeline")
+                        (pf v "post")
+                        (pf v "friends")
+                        (pf v "user_detail")
+                        (pf v "recommend")
+                        ]))))
+        ;_ (println ret)
+        ]
+    ret))
+
+(defn compare-query [date]
+  (println (format "compare-query date=%s" date))
+  (let [[yf mf df] (format-date date)
+        day (t/plus (t/date-time yf mf df 0 0 0) (t/hours -8) (t/days 1))
+        ret (mc/find-one-as-map db "stat_daily_loss_and_stay_newuser_action" {:day day})
+        u (fn [a]
+            (fn [b]
+              (fn [x]
+                (get-in x [a b] 0))))
+        f1 (fn [f]
+             ((juxt (f :user_count) (f :play_count) (f :video_create)
+                    (f :video_create_free) (f :video_create_sample) (f :video_create_station)
+                    (f :album_create) (f :film_create) (f :like) (f :fav))
+                ret))
+        [li1 & lis] (f1 (u :loss_ios))
+        [si1 & sis] (f1 (u :stay_ios))
+        [la1 & las] (f1 (u :loss_android))
+        [sa1 & sas] (f1 (u :stay_android))
+        vc (comp vec concat)
+        pf (fn [a b] (str a " (" (pcs a b) ")"))
+        ]
+    (seq [(vc ["loss_ios" (pf li1 (+ li1 si1))] (map #(pf % li1) lis))
+          (vc ["stay_ios" (pf si1 (+ li1 si1))] (map #(pf % si1) sis))
+          (vc ["loss_android" (pf la1 (+ la1 sa1))] (map #(pf % la1) las))
+          (vc ["stay_android" (pf sa1 (+ la1 sa1))] (map #(pf % sa1) sas))])))

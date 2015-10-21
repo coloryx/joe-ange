@@ -21,7 +21,7 @@
    :headers {"Content-Type" "application/json"}
    :status 200})
 
-(defroutes home-routes
+(defroutes home-routes ;; TODO lein run not auto rerun this code, must restart!?
   (GET "/" [] (home-page))
   (GET "/docs" [] (ok (-> "docs/docs.md" io/resource slurp)))
   (GET "/rank" [date cate] (db/rank-query date cate))
@@ -29,4 +29,10 @@
   (GET "/day" [ca from to] (map #(db/day-query % from to) (s/split ca #",")))
   (GET "/access" [ca from to] (map #(db/day-access % from to) (s/split ca #",")))
   (GET "/mins" [ca] (map db/mins-query (s/split ca #",")))
+  (GET "/ratio" [ca from to] (map #(db/ratio-query % from to) (s/split ca #",")))
+  (GET "/mold" [ca from to] (map #(db/mold-query % from to) (s/split ca #",")))
+  (GET "/moldlist" [date cate] (db/mold-list-query date cate))
+  (GET "/table" [date] (db/table-query date))
+  (GET "/sample" [date os platform age_zone gender] (db/sample-query date os platform age_zone gender))
+  (GET "/compare" [date] (db/compare-query date))
   )
