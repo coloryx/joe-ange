@@ -13,7 +13,7 @@
             [cljs-time.periodic :as cp]
             [cljs-time.format :as cf]
             [reagent-forms.core :as rf]
-
+            [reagent-modals.modals :as reagent-modals]
             )
   (:import goog.History))
 
@@ -31,10 +31,19 @@
   (mapv unparse-date
         (take (inc (ct/in-days (ct/interval (parse-date from) (parse-date to))))
               (cp/periodic-seq (parse-date from) (ct/days 1)))))
+
+(defn before-n [n]
+  (fn [date]
+    (unparse-date (ct/plus (parse-date date) (ct/days (* -1 n))))))
+(def before1 (before-n 1))
+(def before7 (before-n 7))
+
 (def today (unparse-date (ct/now)))
-(def yesterday (unparse-date (ct/plus (ct/now) (ct/days -1))))
-(def the-day-before-yesterday (unparse-date (ct/plus (ct/now) (ct/days -2))))
-(def ylastweek (unparse-date (ct/plus (ct/now) (ct/days -8))))
+(defn offset-today [n] (unparse-date (ct/plus (ct/now) (ct/days n))))
+(def yesterday (offset-today -1))
+(def the-day-before-yesterday (offset-today -2))
+(def lastweekday-of-yesterday (offset-today -8))
+(def lastmonthday-of-yesterday (offset-today -31))
 
 (defn unparse-date2 [date] (cf/unparse (cf/formatter "HH:mm") date))
 (defn parse-date2 [date] (cf/parse (cf/formatter "yyyy-MM-dd-HH:mm") date))
@@ -83,7 +92,7 @@
 
 (defn chart-unity-component [multi-selects-component getstr graph-id cominit]
   (let [stuff (r/atom [])
-        from (r/atom ylastweek)
+        from (r/atom lastweekday-of-yesterday)
         to (r/atom yesterday)
         compound (r/atom cominit)
         ca (r/atom #{})
@@ -103,19 +112,16 @@
                            :borderWidth 0}
                   :series [{:name "sample"
                             :data [1 2 3]}]})
-        get-stuff (fn []
-                    (GET (str "/" getstr)
-                         {:params {:from @from :to @to :ca (s/join "," @ca)}
-                          :handler (fn [response]
-                                     (debug/prn "response=" response)
-                                     (reset! stuff response)
-                                     (swap! config assoc :series (vec (for [{name "name" data "data"} @stuff]
-                                                                        {:name name :data data})))
-                                     (swap! config assoc-in [:xAxis :categories] (period-date @from @to))
-                                     )}))
-
-        add (fn [] (swap! ca conj (s/join "-" @compound)))
-        clear (fn [] (reset! ca #{}))
+        get-stuff #(GET (str "/" getstr)
+                        {:params {:from @from :to @to :ca (s/join "," @ca)}
+                         :handler (fn [response]
+                                    (reset! stuff response)
+                                    (swap! config assoc :series (vec (for [{name "name" data "data"} @stuff]
+                                                                       {:name name :data data})))
+                                    (swap! config assoc-in [:xAxis :categories] (period-date @from @to))
+                                    )})
+        add  #(swap! ca conj (s/join "-" @compound))
+        clear #(reset! ca #{})
         _ (add-watch ca :get get-stuff)
         _ (add-watch from :get get-stuff)
         _ (add-watch to :get get-stuff)
@@ -166,7 +172,8 @@
           [nav-link "#/user" "User" :user collapsed?]
           [nav-link "#/post" "Post" :post collapsed?]
           [nav-link "#/mold" "Mold" :mold collapsed?]
-          [nav-link "#/table" "Table" :table collapsed?]
+          [nav-link "#/version-table" "VersionTable" :version-table collapsed?]
+          [nav-link "#/daily-table" "DailyTable" :daily-table collapsed?]
           [nav-link "#/rank" "Rank" :rank collapsed?]
           [nav-link "#/sample" "Sample" :sample collapsed?]
           [nav-link "#/compare" "Compare" :compare collapsed?]
@@ -201,32 +208,44 @@
            :value @value
            :on-change #(reset! value (-> % .-target .-value))}])
 
+;(defn test-page []
+;(let [val (r/atom "2015-10-11")]
+;(fn []
+;[:div
+;[atom-input val]
+;[atom-input val]
+;[date-component val]
+;[select-component val [["display1" "2015-10-11"]
+;["display2" "2015-10-12"]]]
+;[select-component val [["group1" [["display1" "2015-10-11"]
+;["display2" "2015-10-12"]]]
+;["group2" [["display3" "2015-10-12"]
+;["display4" "2015-10-14"]]]] "group"]])))
+(defn modal-window-button []
+  [:div.btn.btn-primary 
+   ;{:on-click #(reagent-modals/modal! [:div "some message to the user!"])} 
+   "My Modal"])
+
 (defn test-page []
-  (let [val (r/atom "2015-10-11")]
-    (fn []
-      [:div
-       [atom-input val]
-       [atom-input val]
-       [date-component val]
-       [select-component val [["display1" "2015-10-11"]
-                              ["display2" "2015-10-12"]]]
-       [select-component val [["group1" [["display1" "2015-10-11"]
-                                         ["display2" "2015-10-12"]]]
-                              ["group2" [["display3" "2015-10-12"]
-                                         ["display4" "2015-10-14"]]]] "group"]])))
+  [:div
+   [reagent-modals/modal-window]
+   ;; ATTNETION \/
+   [modal-window-button]
+   ;; ATTENTION /\
+   ])
 
 ;(def form
-  ;[:div
-   ;[:input {:field :radio :value :a :name :foo :id :radioselection} "foo"]
-   ;[:input {:field :radio :value :b :name :foo :id :radioselection} "bar"]
-   ;[:input {:field :radio :value :c :name :foo :id :radioselection} "baz"]])
+;[:div
+;[:input {:field :radio :value :a :name :foo :id :radioselection} "foo"]
+;[:input {:field :radio :value :b :name :foo :id :radioselection} "bar"]
+;[:input {:field :radio :value :c :name :foo :id :radioselection} "baz"]])
 
 ;(defn test-page []
-  ;(let [doc (r/atom {:radioselection :b})]
-    ;(fn []
-      ;[:div
-       ;[rf/bind-fields form doc]
-       ;[:label (str @doc)]])))
+;(let [doc (r/atom {:radioselection :b})]
+;(fn []
+;[:div
+;[rf/bind-fields form doc]
+;[:label (str @doc)]])))
 
 ;; day-page
 
@@ -385,12 +404,7 @@
    [:input {:field :radio :value today :name :foo} "今天"]
    [:input {:field :radio :value yesterday :name :foo} "昨天"]])
 
-(defn before-n [n]
-  (fn [date]
-    (unparse-date (ct/plus (parse-date date) (ct/days (* -1 n))))))
 
-(def before1 (before-n 1))
-(def before7 (before-n 7))
 
 (def mins-radio-component-bottom
   [:div {:style {:text-align "center"}}
@@ -424,15 +438,14 @@
                            :borderWidth 0}
                   :series [{:name "sample"
                             :data [1 2 3]}]})
-        get-stuff (fn []
-                    (GET "/mins"
-                         {:params {:ca (s/join "," [(s/join "-" [(s/replace (:foo @radio1) "-" "") @bi1 @os1])
-                                                    (s/join "-" [(s/replace @date2 "-" "") @bi2 @os2])])}
-                          :handler (fn [response]
-                                     (reset! stuff response)
-                                     (swap! config assoc :series (vec (for [{name "name" data "data"} @stuff]
-                                                                        {:name name :data data})))
-                                     )}))
+        get-stuff #(GET "/mins"
+                        {:params {:ca (s/join "," [(s/join "-" [(s/replace (:foo @radio1) "-" "") @bi1 @os1])
+                                                   (s/join "-" [(s/replace @date2 "-" "") @bi2 @os2])])}
+                         :handler (fn [response]
+                                    (reset! stuff response)
+                                    (swap! config assoc :series (vec (for [{name "name" data "data"} @stuff]
+                                                                       {:name name :data data})))
+                                    )})
         syn-date (fn [] (reset! date2 ((:baz @radio2) (:foo @radio1))))
         _ (add-watch radio1 :sync syn-date)
         _ (add-watch radio2 :sync syn-date)
@@ -541,23 +554,23 @@
   [:div
    [select-component a
     [["创建剧组" "post_create"]
-                       ["关注剧组" "post_follow"]
-                       ["上传视频到剧组" "post_upload_video"]
-                       ["上传素材到剧组" "post_upload_statuses"]
-                       ["剧组中播放视频" "post_play"]
-                       ["剧组中短片创建" "post_video_create"]
-                       ["剧组中大片创建" "post_film_create"]
-                       ["剧组分享" "post_share"]
-                       ["上传照片成功到剧组" "post_upload_photo"]
-                       ["上传音频成功到剧组" "post_upload_audio"]
-                       ["上传场景成功到剧组" "post_upload_scene"]
-                       ["上传视频成功到剧组" "post_upload_video_2"]]]
+     ["关注剧组" "post_follow"]
+     ["上传视频到剧组" "post_upload_video"]
+     ["上传素材到剧组" "post_upload_statuses"]
+     ["剧组中播放视频" "post_play"]
+     ["剧组中短片创建" "post_video_create"]
+     ["剧组中大片创建" "post_film_create"]
+     ["剧组分享" "post_share"]
+     ["上传照片成功到剧组" "post_upload_photo"]
+     ["上传音频成功到剧组" "post_upload_audio"]
+     ["上传场景成功到剧组" "post_upload_scene"]
+     ["上传视频成功到剧组" "post_upload_video_2"]]]
    [select-component b
     [["次数" "count"]
      ["人数" "user"]
      ["被操作数" "target"]]]
    [select-component c
-     [["all" "all"]
+    [["all" "all"]
      ["android" "and"]
      ["iOS" "iOS"]]]
    [button-component "+" +]
@@ -624,9 +637,9 @@
     [mold-list-component]
     ]])
 
-;; table
+;; version-table
 
-(defn table-page []
+(defn version-table-page []
   (let [stuff (r/atom nil)
         date (r/atom yesterday)
         get-stuff #(GET "/table"
@@ -644,26 +657,107 @@
         [date-component date]
         [:div
          [:table.table.table-bordered.table-striped
-          [:tr
-           [:th "android版本号"]
-           [:th "活跃用户数"] 
-           [:th "短片自己创作数"]
-           [:th "短片模版照做数"]
-           [:th "短片广场照做数"]
-           [:th "短片数"]
-           [:th "短片数／活跃用户数"]
-           [:th "大片创建数"] 
-           [:th "大片创建数／活跃用户数"] 
-           [:th "影集创建数"]
-           [:th "影集创建数／活跃用户数"]
-           [:th "创作总数"]
-           [:th "创作总数／活跃用户数"]]
-          (for [e @stuff]
+          [:tbody
+           [:tr
+            [:th "android版本号"]
+            [:th "活跃用户数"] 
+            [:th "短片自己创作数"]
+            [:th "短片模版照做数"]
+            [:th "短片广场照做数"]
+            [:th "短片数"]
+            [:th "短片数／活跃用户数"]
+            [:th "大片创建数"] 
+            [:th "大片创建数／活跃用户数"] 
+            [:th "影集创建数"]
+            [:th "影集创建数／活跃用户数"]
+            [:th "创作总数"]
+            [:th "创作总数／活跃用户数"]]
+           (for [e @stuff]
+             [:tr
+              (for [u e]
+                [:td u])])]]]]])))
+
+;; daily-table
+
+(def daily-th
+  [:tr
+   [:th "日期"]
+   [:th "新用户数"]
+   [:th "新用户数／总视频分享数(转化率)"]
+   [:th "活跃用户数"]
+   [:th "短片创作数"]
+   [:th "高清创作数"]
+   [:th "影集创作数"]
+   [:th "短片创作数／活跃用户数"]
+   [:th "高清创作数／活跃用户数"]
+   [:th "影集创作数／活跃用户数"]
+   [:th "短片分享数"]
+   [:th "高清分享数"]
+   [:th "影集分享数"]
+   [:th "短片分享数／短片创作数"]
+   [:th "高清分享数／高清创作数"]
+   [:th "影集分享数／影集创作数"]
+   [:th "照做数"]
+   [:th "（短片创作数＋高清创作数）／照做数"]
+   [:th "关注数"]
+   [:th "关注数／活跃用户数"]
+   [:th "收藏数"]
+   [:th "赞数"]
+   [:th "赞数／活跃用户数"]
+   [:th "加入剧组数"]
+   [:th "新建剧组数"]
+   [:th "上传素材数"]
+   [:th "剧组短片数"]
+   [:th "剧组大片数"]])
+
+(defn daily-table-page []
+  (let [stuff (r/atom nil)
+        from (r/atom lastweekday-of-yesterday)
+        to (r/atom yesterday)
+        get-stuff #(GET "/daily-table"
+                        {:params {:from @from
+                                  :to @to}
+                         :handler (fn [response]
+                                    (debug/prn "daily-table-response=" response)
+                                    (reset! stuff response))})
+        _ (add-watch from :get get-stuff)
+        _ (add-watch to :get get-stuff)
+        ]
+    (fn []
+      [:div
+       [date-component from]
+       [date-component to]
+       [:div
+        [:label "Android"]
+        [:table.table.table-bordered.table-striped
+         [:tbody
+          daily-th
+          (for [e (first @stuff)]
             [:tr
              (for [u e]
                [:td u])])
-          ]]
-        ]])))
+          ]]]
+       [:div
+        [:label "iOS"]
+        [:table.table.table-bordered.table-striped
+         [:tbody
+          daily-th
+          (for [e (second @stuff)]
+            [:tr
+             (for [u e]
+               [:td u])])
+          ]]]
+       [:div
+        [:label "Andorid + iOS"]
+        [:table.table.table-bordered.table-striped
+         [:tbody
+          daily-th
+          (for [e (last @stuff)]
+            [:tr
+             (for [u e]
+               [:td u])])
+          ]]]
+       ])))
 
 ;; rank 
 
@@ -672,8 +766,8 @@
         date (r/atom yesterday)
         cate (r/atom "rank200_video_station_create")
         get-stuff #(GET "/rank" 
-                          {:params {:date @date :cate @cate}
-                           :handler (fn [response] (reset! stuff response))})
+                        {:params {:date @date :cate @cate}
+                         :handler (fn [response] (reset! stuff response))})
         _ (add-watch date :get get-stuff)
         _ (add-watch cate :get get-stuff)
         ]
@@ -687,49 +781,15 @@
           ["网页端播放的前200名" "rank200_video_play_onweb"]]]
         [:div
          [:table.table.table-bordered.table-striped
-          [:tr
-           [:th "数量"]
-           [:th "链接"]]
-          (doall ;; must!!
-            (for [i (range 200)]
-              (let [e (get @stuff i)]
-                [:tr
-                 [:td (second e)]
-                 [:td [:a {:href (str "http://video.colorv.cn/play/" (str (first e)))}
-                       [:img {:src (last e) :height 100 :width 200}]]]])))]]]])))
-
-;; search
-
-(defn search-page []
-  (let [stuff (r/atom nil)
-        date (r/atom yesterday)
-        cate (r/atom "scene")
-        get-stuff #(GET "/search"
-                         {:params {:date @date :cate @cate}
-                          :handler (fn [response] 
-                                     (reset! stuff response))})
-        _ (add-watch date :get get-stuff)
-        _ (add-watch cate :get get-stuff)
-        ]
-    (fn []
-      [:div.container
-       [:div.row
-        [date-component date]
-        [select-component cate 
-         [["搜索视频" "video"]
-          ["搜索视频素材" "scene"]
-          ["搜索标准素材库" "stdscene"]]]
-        [:div
-         [:table.table.table-bordered.table-striped
-          [:tr
-           [:th "数量"]
-           [:th "搜索词"]] 
-          (doall
-            (for [i (range 100)]
-              (let [e (get @stuff i)]
-                [:tr
-                 [:td (second e)]
-                 [:td (first e)]])))]]]])))
+          [:tbody
+           [:tr
+            [:th "数量"]
+            [:th "链接"]]
+           (for [e @stuff]
+             [:tr
+              [:td (second e)]
+              [:td [:a {:href (str "http://video.colorv.cn/play/" (str (first e)))}
+                    [:img {:src (last e) :height 100 :width 200}]]]])]]]]])))
 
 ;; sample
 
@@ -784,22 +844,21 @@
            ["all" "all"]]]]
         [:div
          [:table.table.table-bordered.table-striped
-          [:tr
-           [:th "版本"]
-           [:th "活跃用户数"]
-           [:th "照做总数 (照做总数／活跃用户数)"]
-           [:th "热门"]
-           [:th "最新"]
-           [:th "剧组"]
-           [:th "关注"]
-           [:th "用户页"]
-           [:th "推荐"]]
-          (for [e @stuff]
-            [:tr
-             (for [u e]
-               [:td u])])
-          ]]
-        ]])))
+          [:tbody
+           [:tr
+            [:th "版本"]
+            [:th "活跃用户数"]
+            [:th "照做总数 (照做总数／活跃用户数)"]
+            [:th "热门"]
+            [:th "最新"]
+            [:th "剧组"]
+            [:th "关注"]
+            [:th "用户页"]
+            [:th "推荐"]]
+           (for [e @stuff]
+             [:tr
+              (for [u e]
+                [:td u])])]]]]])))
 
 ;; compare
 
@@ -808,9 +867,7 @@
         date (r/atom the-day-before-yesterday)
         get-stuff #(GET "/compare"
                         {:params {:date @date}
-                         :handler (fn [response]
-                                    (debug/prn "compare-page-response=" response)
-                                    (reset! stuff response))})
+                         :handler (fn [response] (reset! stuff response))})
         _ (add-watch date :get get-stuff)
         ]
     (fn []
@@ -819,25 +876,55 @@
         [date-component date]
         [:div
          [:table.table.table-bordered.table-striped
-          [:tr
-           [:th "用户类别"]
-           [:th "用户数 (/总数)"]
-           [:th "播放 (/用户数)"]
-           [:th "短片制作 (/用户数)"]
-           [:th "短片自己创建 (/用户数)"]
-           [:th "短片模版照做 (/用户数)"]
-           [:th "短片广场照做 (/用户数)"]
-           [:th "影集制作 (/用户数)"]
-           [:th "大片制作 (/用户数)"]
-           [:th "点赞 (/用户数)"]
-           [:th "关注 (/用户数)"]]
-          (for [e @stuff]
-            [:tr
-             (for [u e]
-               [:td u])])
-          ]]
-        ]])))
+          [:tbody ;;must
+           [:tr
+            [:th "用户类别"]
+            [:th "用户数 (/总数)"]
+            [:th "播放 (/用户数)"]
+            [:th "短片制作 (/用户数)"]
+            [:th "短片自己创建 (/用户数)"]
+            [:th "短片模版照做 (/用户数)"]
+            [:th "短片广场照做 (/用户数)"]
+            [:th "影集制作 (/用户数)"]
+            [:th "大片制作 (/用户数)"]
+            [:th "点赞 (/用户数)"]
+            [:th "关注 (/用户数)"]]
+           (for [e @stuff]
+             [:tr
+              (for [u e]
+                [:td u])])]]]]])))
 
+;; search
+
+(defn search-page []
+  (let [stuff (r/atom nil)
+        date (r/atom yesterday)
+        cate (r/atom "scene")
+        get-stuff #(GET "/search"
+                        {:params {:date @date :cate @cate}
+                         :handler (fn [response] 
+                                    (reset! stuff response))})
+        _ (add-watch date :get get-stuff)
+        _ (add-watch cate :get get-stuff)
+        ]
+    (fn []
+      [:div.container
+       [:div.row
+        [date-component date]
+        [select-component cate 
+         [["搜索视频" "video"]
+          ["搜索视频素材" "scene"]
+          ["搜索标准素材库" "stdscene"]]]
+        [:div
+         [:table.table.table-bordered.table-striped.table-condensed.table-responsive
+          [:tbody
+           [:tr
+            [:th "数量"]
+            [:th "搜索词"]]
+           (for [e @stuff]
+             [:tr
+              [:td (second e)]
+              [:td (first e)]])]]]]])))
 ;;;
 
 (def pages
@@ -850,11 +937,12 @@
    :user #'user-page
    :post #'post-page
    :mold #'mold-page
-   :table #'table-page
+   :version-table #'version-table-page
+   :daily-table #'daily-table-page
    :sample #'sample-page
    :rank #'rank-page
-   :search #'search-page
    :compare #'compare-page
+   :search #'search-page
    })
 
 (defn page []
@@ -873,11 +961,12 @@
 (secretary/defroute "/user" [] (session/put! :page :user))
 (secretary/defroute "/post" [] (session/put! :page :post))
 (secretary/defroute "/mold" [] (session/put! :page :mold))
-(secretary/defroute "/table" [] (session/put! :page :table))
+(secretary/defroute "/version-table" [] (session/put! :page :version-table))
+(secretary/defroute "/daily-table" [] (session/put! :page :daily-table))
 (secretary/defroute "/rank" [] (session/put! :page :rank))
 (secretary/defroute "/sample" [] (session/put! :page :sample))
-(secretary/defroute "/compare" [] (session/put! :page :compare))
 (secretary/defroute "/search" [] (session/put! :page :search))
+(secretary/defroute "/compare" [] (session/put! :page :compare))
 
 ;; -------------------------
 ;; History

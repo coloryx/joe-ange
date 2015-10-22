@@ -35,4 +35,5 @@
   (GET "/table" [date] (db/table-query date))
   (GET "/sample" [date os platform age_zone gender] (db/sample-query date os platform age_zone gender))
   (GET "/compare" [date] (db/compare-query date))
+  (GET "/daily-table" [from to] (db/daily-table-query from to))
   )

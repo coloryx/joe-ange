@@ -40,6 +40,7 @@
                  ;[jayq "2.5.4"]
                  [reagent-forms "0.5.1"]
                  [cljsjs/react "0.13.1-0"] 
+                 [org.clojars.frozenlock/reagent-modals "0.2.3"]
                  ]
 
   :min-lein-version "2.0.0"
