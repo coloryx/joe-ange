@@ -17,6 +17,34 @@
                   {:keys [db]} (mg/connect-via-uri uri)]
               db))
 
+(defonce ios-versions (atom ["3.2.3" "3.2.2"]))
+(defonce and-versions (atom ["3.6.9beta8" "3.6.9beta6"]))
+
+(defn get-versions [day os-str]
+  (->> (mc/find-one-as-map db "stat_daily_active_user" {:day day})
+    keys
+    (map str)
+    (filter (partial re-find (re-pattern os-str)))
+    (map #(-> % 
+            (s/replace os-str "")
+            (s/replace "_" ".")
+            (s/replace ":" "")))
+    (remove (partial re-find #"^5."))
+    (remove (partial re-find #"^4."))
+    sort
+    reverse
+    vec))
+
+;;this is yesterday's android versions
+(defn update-ios-versions [day]
+  (reset! ios-versions (get-versions day "sum-user-iOS-")))
+
+(defn update-and-versions [day]
+  (reset! and-versions (get-versions day "sum-user-and-")))
+
+(defn sync-ios-versions [] (seq @ios-versions))
+(defn sync-and-versions [] (seq @and-versions))
+
 ;(defn create-user [user]
   ;(mc/insert db "users" user))
 
@@ -74,9 +102,6 @@
           default)))
     (date-array from to)))
 
-(defn qs- [coll field from to]
-  (qsa coll field from to "-"))
-
 (defn qs [coll field from to]
   (qsa coll field from to 0))
 
@@ -92,7 +117,7 @@
         ke (if version
              (s/join "-" ["sum" st os version])
              (s/join "-" ["sum" st (trand os)]))
-        data (qs- (str "stat_daily_" cate) (keyword ke) from to)
+        data (qs (str "stat_daily_" cate) (keyword ke) from to)
         ]
     {:name ca :data data}))
 
@@ -127,7 +152,7 @@
 (defn day-access [ca from to]
   (println (format "day-access, ca=%s from=%s to=%s" ca from to))
   (let [[from to] (mapv parse-date [from to])
-        data (qs- "stat_daily_access" (keyword (str "sum-" ca)) from to)
+        data (qs "stat_daily_access" (keyword (str "sum-" ca)) from to)
         ]
     {:name ca :data data}))
 
@@ -247,9 +272,11 @@
         res (mc/find-one-as-map db "stat_daily_get_mold" {:day date})]
     (seq (cate res))))
 
-(defn table-query [date]
-  (println (format "table-query date=%s" date))
-  (let  [date (parse-date date)
+(defn table-query [date os]
+  (println (format "table-query date=%s os=%s" date os))
+  (let  [os1 (str "sum-user-" os "-")
+         os2 (str "sum-count-" os "-")
+         date (parse-date date)
          active-user-ret (mc/find-one-as-map db "stat_daily_active_user" {:day date}) ;;把数据先缓存下来，后面慢慢取
          video-free-ret (mc/find-one-as-map db "stat_daily_video_free" {:day date})
          video-sample-ret (mc/find-one-as-map db "stat_daily_video_sample" {:day date})
@@ -261,15 +288,15 @@
                               (keyword (str pre (s/replace v "." "_")))
                               0))
          cf (fn [v]
-              (let [active-user-count (gf active-user-ret v "sum-user-and-")
-                    video-free-count (gf video-free-ret v "sum-count-and-")
-                    video-sample-count (gf video-sample-ret v "sum-count-and-")
-                    video-station-count (gf video-station-ret v "sum-count-and-")
+              (let [active-user-count (gf active-user-ret v os1)
+                    video-free-count (gf video-free-ret v os2)
+                    video-sample-count (gf video-sample-ret v os2)
+                    video-station-count (gf video-station-ret v os2)
                     video-count (+ video-free-count video-sample-count video-station-count)
                     video-ratio (pcs video-count active-user-count)
-                    film-count (gf film-create-ret v "sum-count-and-")
+                    film-count (gf film-create-ret v os2)
                     film-ratio (pcs film-count active-user-count)
-                    album-count (gf album-create-ret v "sum-count-and-")
+                    album-count (gf album-create-ret v os2)
                     album-ratio (pcs album-count active-user-count)
                     create-count (+ video-count film-count album-count)
                     create-ratio (pcs create-count active-user-count)]
@@ -287,14 +314,14 @@
                  create-count
                  create-ratio
                  ]))
-         ;_ (println "vs=" @and-versions)
-         ;res (map cf @and-versions)
-         res (map cf ["3.6.7" "3.6.6"]) ;; TODO
+         res (map cf (case os
+                       "and" @and-versions
+                       "iOS" @ios-versions))
          ]
     res))
 
 (defn sample-query [date os platform age_zone gender]
-  (println (format "sssss sample-query, date=%s, os=%s, platform=%s, age_zone=%s gender=%s"
+  (println (format "sample-query, date=%s, os=%s, platform=%s, age_zone=%s gender=%s"
                    date os platform age_zone gender))
   (let [date (parse-date date)
         af (fn [e c d] (if (= "all" c)
@@ -303,38 +330,30 @@
         bf (fn [e c d] (if (= "all" c)
                          true
                          (= (to-int c) (get-in e [:user_info d]))))
-        pf (fn [v place] (->> (filter #(= place (get-in % [:user_info :place])) v)
-                           (map :count)
-                           (apply +)))
-        qf (fn [v] (->> v (map :count) (apply +)))
-        res (filter
-              (fn [e] (and (af e os :os)
-                           (af e platform :platform)
-                           (bf e age_zone :age_zone)
-                           (af e gender :gender)))
-              (:detail (mc/find-one-as-map db "stat_daily_active_user_detail" {:day date})))
+        sum-count #(apply + (map (comp (fnil identity 0) :count) %))
+        sum-count-place (fn [v place] (sum-count (filter #(= place (get-in % [:user_info :place])) v)))
+        sum-count-version (fn [v version] (sum-count (filter #(= version (get-in % [:user_info :version])) v)))
+        select-group #(and (af % os :os)
+                           (af % platform :platform)
+                           (bf % age_zone :age_zone)
+                           (af % gender :gender))
+        active-user (filter select-group
+                    (:detail (mc/find-one-as-map db "stat_daily_active_user_detail" {:day date})))
         ret (->> (:detail (mc/find-one-as-map db "stat_daily_sample_detail" {:day date}))
-              (filter (fn [e] (and (af e os :os)
-                                   (af e platform :platform)
-                                   (bf e age_zone :age_zone)
-                                   (af e gender :gender))))
+              (filter select-group)
               (group-by #(get-in % [:user_info :version]))
-              (map (fn [[k v]]
-                     (let [active-user (->> res
-                                         (filter (fn [x] (= k (get-in x [:user_info :version]))))
-                                         (map (comp (fnil long 0) :count))
-                                         (apply +))
-                           sample-all (qf v)]
-                       [k
-                        active-user
-                        (str sample-all " (" (pcs sample-all active-user) ")")
-                        (pf v "digest")
-                        (pf v "timeline")
-                        (pf v "post")
-                        (pf v "friends")
-                        (pf v "user_detail")
-                        (pf v "recommend")
-                        ]))))
+              (map (fn [[version sample]]
+                     [version
+                      (sum-count-version active-user version)
+                      (sum-count sample)
+                      (sum-count-place sample "digest")
+                      (sum-count-place sample "timeline")
+                      (sum-count-place sample "post")
+                      (sum-count-place sample "friends")
+                      (sum-count-place sample "user_detail")
+                      (sum-count-place sample "recommend")
+                      ;(sum-count-version 
+                      ])))
         ]
     ret))
 

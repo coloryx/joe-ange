@@ -17,14 +17,6 @@
             )
   (:import goog.History))
 
-(def mutative-versions
-  [["Group1-all" [["all" "all"]]]
-   ["Group2-iOS" [["all" "all"]
-                  ["3.2.0" "3.2.0"]
-                  ["3.1.9" "3.1.9"]]]
-   ["Group3-android" [["all" "all"]
-                      ["3.6.9" "3.6.9"]
-                      ["3.6.8" "3.6.8"]]]])
 (defn parse-date [date] (cf/parse (cf/formatter "yyyy-MM-dd") date))
 (defn unparse-date [date] (cf/unparse (cf/formatter "yyyy-MM-dd") date))
 (defn period-date [from to]
@@ -53,6 +45,8 @@
               (cp/periodic-seq (parse-date2 from) (ct/minutes 10)))))
 (def period-10mins-oneday (period-date2 "2015-09-10-00:00" "2015-09-10-23:50")) ;; static display mins
 
+;;
+
 (defn date-component [value]
   [:input {:type "date"
            :value @value
@@ -73,6 +67,26 @@
       [:optgroup {:label label}
        (for [[text v] ss] 
          [:option {:value v} text])])]))
+
+(def ios-versions (r/atom []))
+(def and-versions (r/atom []))
+
+;;
+(defn select-versions-component [value]
+  (fn []
+    [:select
+     {:value @value
+      :on-change (fn [e] (reset! value (-> e .-target .-value)))}
+     [:optgroup {:label "Group1-all"}
+      [:option {:value "all"} "all"]]
+     [:optgroup {:label "Group2-iOS"}
+      [:option {:value "all"} "all"]
+      (for [v @ios-versions]
+        [:option {:value v} v])]
+     [:optgroup {:label "Group3-android"}
+      [:option {:value "all"} "all"]
+      (for [v @and-versions]
+        [:option {:value v} v])]]))
 
 (defn button-component [text f]
   [:button {:on-click (fn [e] (f))} text])
@@ -112,29 +126,39 @@
                            :borderWidth 0}
                   :series [{:name "sample"
                             :data [1 2 3]}]})
-        get-stuff #(GET (str "/" getstr)
-                        {:params {:from @from :to @to :ca (s/join "," @ca)}
-                         :handler (fn [response]
-                                    (reset! stuff response)
-                                    (swap! config assoc :series (vec (for [{name "name" data "data"} @stuff]
-                                                                       {:name name :data data})))
-                                    (swap! config assoc-in [:xAxis :categories] (period-date @from @to))
-                                    )})
+        get-stuff (fn [] 
+                    (GET (str "/" getstr)
+                         {:params {:from @from :to @to :ca (s/join "," @ca)}
+                          :handler (fn [response]
+                                     (debug/prn response)
+                                     (reset! stuff response)
+                                     (swap! config assoc :series (vec (for [{name "name" data "data"} @stuff]
+                                                                        {:name name :data data})))
+                                     (swap! config assoc-in [:xAxis :categories] (period-date @from @to))
+                                     )})
+                    (GET "/sync-ios-versions" {:handler (fn [response] (reset! ios-versions response))})
+                    (GET "/sync-and-versions" {:handler (fn [response] (reset! and-versions response))}))
         add  #(swap! ca conj (s/join "-" @compound))
         clear #(reset! ca #{})
         _ (add-watch ca :get get-stuff)
         _ (add-watch from :get get-stuff)
         _ (add-watch to :get get-stuff)
         ]
-    (fn []
-      [:div ;;must
-       [date-component from]
-       [date-component to]
-       [multi-selects-component 
-        (mapv #(r/cursor compound [%]) (range (count cominit)))
-        add clear]
-       [graph config graph-id]])))
-
+    (r/create-class
+      {:reagent-render
+       (fn []
+         [:div ;;must
+          [date-component from]
+          [date-component to]
+          [multi-selects-component 
+           (mapv #(r/cursor compound [%]) (range (count cominit)))
+           add clear]
+          [graph config graph-id]])
+       :component-did-mount
+       (fn [this]
+         (add)
+         (get-stuff))})))
+       
 ;; before are some public components
 
 (defn nav-link [uri title page collapsed?]
@@ -163,6 +187,7 @@
         [:div.navbar-collapse.collapse
          (when-not @collapsed? {:class "in"})
          [:ul.nav.navbar-nav
+         ;[:ul.nav.nav-pills
           [nav-link "#/" "Home" :home collapsed?]
           [nav-link "#/about" "About" :about collapsed?]
           [nav-link "#/test" "Test" :test collapsed?]
@@ -266,14 +291,9 @@
     [["all" "all"]
      ["android" "and"]
      ["iOS" "iOS"]]]
-   [select-component d 
-    [["Group1-all" [["all" "all"]]]
-     ["Group2-iOS" [["all" "all"]
-                    ["3.2.0" "3.2.0"]
-                    ["3.1.9" "3.1.9"]]]
-     ["Group3-android" [["all" "all"]
-                        ["3.6.9" "3.6.9"]
-                        ["3.6.8" "3.6.8"]]]] "group"]
+   ;[select-component d 
+    ;mutative-versions "group"]
+   [select-versions-component d]
    [button-component "+" +]
    [button-component "--" --]])
 
@@ -318,14 +338,7 @@
     [["all" "all"]
      ["android" "and"]
      ["iOS" "iOS"]]]
-   [select-component d
-    [["Group1-all" [["all" "all"]]]
-     ["Group2-iOS" [["all" "all"]
-                    ["3.2.0" "3.2.0"]
-                    ["3.1.9" "3.1.9"]]]
-     ["Group3-android" [["all" "all"]
-                        ["3.6.9" "3.6.9"]
-                        ["3.6.8" "3.6.8"]]]] "group"]
+   [select-versions-component d]
    [button-component "+" +]
    [button-component "--" --]])
 
@@ -354,8 +367,11 @@
 (defn day-page []
   [:div.container
    [:div.row
+    [:label "1 . 社区活跃度:"]
     [chart-unity-component day-selects1-component "day" "day-graph1" ["user_follow" "count" "all" "all"]]
+    [:label "2 . 视频播放分享创建数量:"]
     [chart-unity-component day-selects2-component "day" "day-graph2" ["video_play" "count" "all" "all"]]
+    [:label "3 . 渠道:"]
     [chart-unity-component day-selects3-component "access" "day-graph3" ["play" "all" "all" "all"]]]])
 
 ;; mins
@@ -403,8 +419,6 @@
   [:div
    [:input {:field :radio :value today :name :foo} "今天"]
    [:input {:field :radio :value yesterday :name :foo} "昨天"]])
-
-
 
 (def mins-radio-component-bottom
   [:div {:style {:text-align "center"}}
@@ -455,14 +469,16 @@
         _ (add-watch bi2 :get get-stuff)
         _ (add-watch os2 :get get-stuff)
         ]
-    (fn []
-      [:div.container
-       [:div.row
-        [rf/bind-fields mins-radio-component-head radio1]
-        [graph config "mins-graph"]
-        [rf/bind-fields mins-radio-component-bottom radio2]
-        [mins-selects-component date1 bi1 os1] 
-        [mins-selects-component date2 bi2 os2]]])))
+       (fn []
+         (get-stuff)
+         (js/setInterval get-stuff (* 60 1000))
+         [:div.container
+          [:div.row
+           [rf/bind-fields mins-radio-component-head radio1]
+           [graph config "mins-graph"]
+           [rf/bind-fields mins-radio-component-bottom radio2]
+           [mins-selects-component date1 bi1 os1] 
+           [mins-selects-component date2 bi2 os2]]])))
 
 ;; ratio
 
@@ -488,14 +504,7 @@
     [["all" "all"]
      ["android" "and"]
      ["iOS" "iOS"]]]
-   [select-component c
-    [["Group1-all" [["all" "all"]]]
-     ["Group2-iOS" [["all" "all"]
-                    ["3.2.0" "3.2.0"]
-                    ["3.1.9" "3.1.9"]]]
-     ["Group3-android" [["all" "all"]
-                        ["3.6.9" "3.6.9"]
-                        ["3.6.8" "3.6.8"]]]] "group"]
+   [select-versions-component c]
    [button-component "+" +]
    [button-component "--" --]])
 
@@ -520,8 +529,7 @@
     [["all" "all"]
      ["android" "and"]
      ["iOS" "iOS"]]]
-   [select-component d
-    mutative-versions "group"]
+   [select-versions-component d]
    [button-component "+" +]
    [button-component "--" --]])
 
@@ -535,8 +543,7 @@
     [["all" "all"]
      ["android" "and"]
      ["iOS" "iOS"]]]
-   [select-component d
-    mutative-versions "group"]
+   [select-versions-component d]
    [button-component "+" +]
    [button-component "--" --]])
 
@@ -639,43 +646,60 @@
 
 ;; version-table
 
+(defn version-table-tr [os]
+  [:tr
+   [:th (str os "版本号")]
+   [:th "活跃用户数"] 
+   [:th "短片自己创作数"]
+   [:th "短片模版照做数"]
+   [:th "短片广场照做数"]
+   [:th "短片数"]
+   [:th "短片数／活跃用户数"]
+   [:th "大片创建数"] 
+   [:th "大片创建数／活跃用户数"] 
+   [:th "影集创建数"]
+   [:th "影集创建数／活跃用户数"]
+   [:th "创作总数"]
+   [:th "创作总数／活跃用户数"]])
+
 (defn version-table-page []
-  (let [stuff (r/atom nil)
+  (let [stuff-and (r/atom nil)
+        stuff-ios (r/atom nil)
         date (r/atom yesterday)
-        get-stuff #(GET "/table"
-                        {:params {:date @date}
-                         :handler (fn [response] 
-                                    (debug/prn "table-response=" response)
-                                    (reset! stuff response)
-                                    (debug/prn "table-stuff" @stuff)
-                                    )})
+        get-stuff (fn [] 
+                    (GET "/version-table"
+                         {:params {:date @date :os "and"}
+                          :handler (fn [response] (reset! stuff-and response))})
+                    (GET "/version-table"
+                         {:params {:date @date :os "iOS"}
+                          :handler (fn [response] (reset! stuff-ios response))}))
         _ (add-watch date :get get-stuff)
         ]
-    (fn []
-      [:div.container
-       [:div.row
-        [date-component date]
-        [:div
-         [:table.table.table-bordered.table-striped
-          [:tbody
-           [:tr
-            [:th "android版本号"]
-            [:th "活跃用户数"] 
-            [:th "短片自己创作数"]
-            [:th "短片模版照做数"]
-            [:th "短片广场照做数"]
-            [:th "短片数"]
-            [:th "短片数／活跃用户数"]
-            [:th "大片创建数"] 
-            [:th "大片创建数／活跃用户数"] 
-            [:th "影集创建数"]
-            [:th "影集创建数／活跃用户数"]
-            [:th "创作总数"]
-            [:th "创作总数／活跃用户数"]]
-           (for [e @stuff]
-             [:tr
-              (for [u e]
-                [:td u])])]]]]])))
+    (r/create-class
+      {:reagent-render
+       (fn []
+         [:div.container
+          [:div.row
+           [date-component date]
+           [:div
+            [:table.table.table-bordered.table-striped
+             [:tbody
+              (version-table-tr "android")
+              (for [e @stuff-and]
+                [:tr
+                 (for [u e]
+                   [:td u])])]]]
+           [:div
+            [:table.table.table-bordered.table-striped
+             [:tbody
+              (version-table-tr "ios")
+              (for [e @stuff-ios]
+                [:tr
+                 (for [u e]
+                   [:td u])])]]]]])
+       :component-did-mount
+       (fn [this]
+         (get-stuff))})))
 
 ;; daily-table
 
@@ -723,41 +747,44 @@
         _ (add-watch from :get get-stuff)
         _ (add-watch to :get get-stuff)
         ]
-    (fn []
-      [:div
-       [date-component from]
-       [date-component to]
-       [:div
-        [:label "Android"]
-        [:table.table.table-bordered.table-striped
-         [:tbody
-          daily-th
-          (for [e (first @stuff)]
-            [:tr
-             (for [u e]
-               [:td u])])
-          ]]]
-       [:div
-        [:label "iOS"]
-        [:table.table.table-bordered.table-striped
-         [:tbody
-          daily-th
-          (for [e (second @stuff)]
-            [:tr
-             (for [u e]
-               [:td u])])
-          ]]]
-       [:div
-        [:label "Andorid + iOS"]
-        [:table.table.table-bordered.table-striped
-         [:tbody
-          daily-th
-          (for [e (last @stuff)]
-            [:tr
-             (for [u e]
-               [:td u])])
-          ]]]
-       ])))
+    (r/create-class
+      {:reagent-render
+       (fn []
+         [:div
+          [date-component from]
+          [date-component to]
+          [:div
+           [:label "Android"]
+           [:table.table.table-bordered.table-striped
+            [:tbody
+             daily-th
+             (for [e (first @stuff)]
+               [:tr
+                (for [u e]
+                  [:td u])])
+             ]]]
+          [:div
+           [:label "iOS"]
+           [:table.table.table-bordered.table-striped
+            [:tbody
+             daily-th
+             (for [e (second @stuff)]
+               [:tr
+                (for [u e]
+                  [:td u])])
+             ]]]
+          [:div
+           [:label "Andorid + iOS"]
+           [:table.table.table-bordered.table-striped
+            [:tbody
+             daily-th
+             (for [e (last @stuff)]
+               [:tr
+                (for [u e]
+                  [:td u])])]]]])
+       :component-did-mount
+       (fn [this]
+         (get-stuff))})))
 
 ;; rank 
 
@@ -771,27 +798,36 @@
         _ (add-watch date :get get-stuff)
         _ (add-watch cate :get get-stuff)
         ]
-    (fn []
-      [:div.container
-       [:div.row
-        [date-component date]
-        [select-component cate 
-         [["被照做的前200名" "rank200_video_station_create"]
-          ["被收藏的前200名" "rank200_video_fav"]
-          ["网页端播放的前200名" "rank200_video_play_onweb"]]]
-        [:div
-         [:table.table.table-bordered.table-striped
-          [:tbody
-           [:tr
-            [:th "数量"]
-            [:th "链接"]]
-           (for [e @stuff]
-             [:tr
-              [:td (second e)]
-              [:td [:a {:href (str "http://video.colorv.cn/play/" (str (first e)))}
-                    [:img {:src (last e) :height 100 :width 200}]]]])]]]]])))
+    (r/create-class
+      {:reagent-render
+       (fn []
+         [:div.container
+          [:div.row
+           [date-component date]
+           [select-component cate 
+            [["被照做的前200名" "rank200_video_station_create"]
+             ["被收藏的前200名" "rank200_video_fav"]
+             ["网页端播放的前200名" "rank200_video_play_onweb"]]]
+           [:div
+            [:table.table.table-bordered.table-striped
+             [:tbody
+              [:tr
+               [:th "数量"]
+               [:th "链接"]]
+              (for [e @stuff]
+                [:tr
+                 [:td (second e)]
+                 [:td [:a {:href (str "http://video.colorv.cn/play/" (str (first e)))}
+                       [:img {:src (last e) :height 100 :width 200}]]]])]]]]])
+       :component-did-mount
+       (fn [this]
+         (get-stuff))})))
 
 ;; sample
+
+(defn save-div [a b]
+  (let [save-b #(if (zero? %) 1 %)]
+    (/ a (save-b b))))
 
 (defn sample-page []
   (let [stuff (r/atom nil)
@@ -808,57 +844,75 @@
                                   :gender @gender}
                          :handler (fn [response]
                                     (debug/prn "sample-response=" response)
-                                    (reset! stuff response))})
+                                    (if (empty? response) ;; weibo usually empty
+                                      (reset! stuff response)
+                                      (let [sum-vec (apply (partial mapv +) (map rest response))
+                                            sum-vec (vec (cons "sum" sum-vec)) ;; cons & conj
+                                            vecs (conj response sum-vec)
+                                            ;; add ratio to third element
+                                            vecs (map (fn [v]
+                                                        (assoc-in v [2]
+                                                                  (str (get v 2)
+                                                                       " ("
+                                                                       (save-div (get v 2) (get v 1))
+                                                                       ")")))
+                                                      vecs)]
+                                        (reset! stuff vecs))))})
         _ (add-watch date :get get-stuff)
         _ (add-watch os :get get-stuff)
         _ (add-watch platform :get get-stuff)
         _ (add-watch age_zone :get get-stuff)
         _ (add-watch gender :get get-stuff)
         ]
-    (fn []
-      [:div.container
-       [:div.row
-        [date-component date]
-        [:div
-         [select-component os
-          [["iOS" "iOS"]
-           ["android" "and"]
-           ["all" "all"]]]
-         [select-component platform
-          [["QQ" "qq"]
-           ["微信" "weixin"]
-           ["微博" "weibo"]
-           ["all" "all"]]]
-         [select-component age_zone
-          [["00后" "1"]
-           ["90后" "2"]
-           ["80后" "3"]
-           ["70后" "4"]
-           ["60后" "5"]
-           ["无" "0"]
-           ["all" "all"]]]
-         [select-component gender
-          [["男" "male"]
-           ["女" "female"]
-           ["无" ""]
-           ["all" "all"]]]]
-        [:div
-         [:table.table.table-bordered.table-striped
-          [:tbody
-           [:tr
-            [:th "版本"]
-            [:th "活跃用户数"]
-            [:th "照做总数 (照做总数／活跃用户数)"]
-            [:th "热门"]
-            [:th "最新"]
-            [:th "剧组"]
-            [:th "关注"]
-            [:th "用户页"]
-            [:th "推荐"]]
-           (for [e @stuff]
-             [:tr
-              (for [u e]
-                [:td u])])]]]]])))
+    (r/create-class
+      {:reagent-render
+       (fn []
+         [:div.container
+          [:div.row
+           [date-component date]
+           [:div
+            [select-component os
+             [["iOS" "iOS"]
+              ["android" "and"]
+              ["all" "all"]]]
+            [select-component platform
+             [["QQ" "qq"]
+              ["微信" "weixin"]
+              ["微博" "weibo"]
+              ["all" "all"]]]
+            [select-component age_zone
+             [["00后" "1"]
+              ["90后" "2"]
+              ["80后" "3"]
+              ["70后" "4"]
+              ["60后" "5"]
+              ["无" "0"]
+              ["all" "all"]]]
+            [select-component gender
+             [["男" "male"]
+              ["女" "female"]
+              ["无" ""]
+              ["all" "all"]]]]
+           [:div
+            [:table.table.table-bordered.table-striped
+             [:tbody
+              [:tr
+               [:th "版本"]
+               [:th "活跃用户数"]
+               [:th "照做总数 (照做总数／活跃用户数)"]
+               [:th "热门"]
+               [:th "最新"]
+               [:th "剧组"]
+               [:th "关注"]
+               [:th "用户页"]
+               [:th "推荐"]]
+              (for [e @stuff]
+                [:tr
+                 (for [u e]
+                   [:td u])])]]]]])
+       :component-did-mount
+       (fn [this]
+         (get-stuff))})))
 
 ;; compare
 
@@ -870,29 +924,34 @@
                          :handler (fn [response] (reset! stuff response))})
         _ (add-watch date :get get-stuff)
         ]
-    (fn []
-      [:div.container
-       [:div.row
-        [date-component date]
-        [:div
-         [:table.table.table-bordered.table-striped
-          [:tbody ;;must
-           [:tr
-            [:th "用户类别"]
-            [:th "用户数 (/总数)"]
-            [:th "播放 (/用户数)"]
-            [:th "短片制作 (/用户数)"]
-            [:th "短片自己创建 (/用户数)"]
-            [:th "短片模版照做 (/用户数)"]
-            [:th "短片广场照做 (/用户数)"]
-            [:th "影集制作 (/用户数)"]
-            [:th "大片制作 (/用户数)"]
-            [:th "点赞 (/用户数)"]
-            [:th "关注 (/用户数)"]]
-           (for [e @stuff]
-             [:tr
-              (for [u e]
-                [:td u])])]]]]])))
+    (r/create-class
+      {:reagent-render
+       (fn []
+         [:div.container
+          [:div.row
+           [date-component date]
+           [:div
+            [:table.table.table-bordered.table-striped
+             [:tbody ;;must
+              [:tr
+               [:th "用户类别"]
+               [:th "用户数 (/总数)"]
+               [:th "播放 (/用户数)"]
+               [:th "短片制作 (/用户数)"]
+               [:th "短片自己创建 (/用户数)"]
+               [:th "短片模版照做 (/用户数)"]
+               [:th "短片广场照做 (/用户数)"]
+               [:th "影集制作 (/用户数)"]
+               [:th "大片制作 (/用户数)"]
+               [:th "点赞 (/用户数)"]
+               [:th "关注 (/用户数)"]]
+              (for [e @stuff]
+                [:tr
+                 (for [u e]
+                   [:td u])])]]]]])
+       :component-did-mount
+       (fn [this]
+         (get-stuff))})))
 
 ;; search
 
@@ -907,24 +966,31 @@
         _ (add-watch date :get get-stuff)
         _ (add-watch cate :get get-stuff)
         ]
-    (fn []
-      [:div.container
-       [:div.row
-        [date-component date]
-        [select-component cate 
-         [["搜索视频" "video"]
-          ["搜索视频素材" "scene"]
-          ["搜索标准素材库" "stdscene"]]]
-        [:div
-         [:table.table.table-bordered.table-striped.table-condensed.table-responsive
-          [:tbody
-           [:tr
-            [:th "数量"]
-            [:th "搜索词"]]
-           (for [e @stuff]
-             [:tr
-              [:td (second e)]
-              [:td (first e)]])]]]]])))
+    (r/create-class
+      {:reagent-render
+       (fn []
+         ;(get-stuff)
+         [:div.container
+          [:div.row
+           [date-component date]
+           [select-component cate 
+            [["搜索视频" "video"]
+             ["搜索视频素材" "scene"]
+             ["搜索标准素材库" "stdscene"]]]
+           [:div
+            [:table.table.table-bordered.table-striped.table-condensed.table-responsive
+             [:tbody
+              [:tr
+               [:th "数量"]
+               [:th "搜索词"]]
+              (for [e @stuff]
+                [:tr
+                 [:td (second e)]
+                 [:td (first e)]])]]]]])
+       :component-did-mount
+       (fn [this]
+         (get-stuff))})))
+
 ;;;
 
 (def pages

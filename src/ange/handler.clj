@@ -8,7 +8,16 @@
             [taoensso.timbre :as timbre]
             [taoensso.timbre.appenders.3rd-party.rotor :as rotor]
             [selmer.parser :as parser]
-            [environ.core :refer [env]]))
+            [environ.core :refer [env]]
+
+            [clj-time.core :as t]
+            ))
+
+(defn schedule [interval f]
+  (future
+    (while true
+      (Thread/sleep interval)
+      (f))))
 
 (defn init
   "init will be called once when
@@ -29,7 +38,10 @@
   (timbre/info (str
                  "\n-=[ange started successfully"
                  (when (env :dev) " using the development profile")
-                 "]=-")))
+                 "]=-"))
+  (schedule (* 1000 60) #(db/update-ios-versions (t/today)))
+  (schedule (* 1000 60) #(db/update-and-versions (t/today)))
+  )
 
 (defn destroy
   "destroy will be called when your application
@@ -47,12 +59,5 @@
         (error-page {:status 404
                      :title "page not found"})))))
 
-
-#_(def app 
+(def app 
   (middleware/wrap-base #'app-routes))
-
-(def app
-  (-> (routes
-        (wrap-routes home-routes middleware/wrap-csrf))
-        ;base-routes)
-      middleware/wrap-base))
