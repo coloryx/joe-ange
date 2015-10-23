@@ -17,6 +17,114 @@
             )
   (:import goog.History))
 
+(def chinese2
+  {
+  "video_like" "视频赞"
+  "video_fav" "视频收藏"
+  "video_comment" "视频评论"
+  "count" "次数"
+  "user" "人数"
+  "target" "被操作数"
+  "all" "all"
+  "and" "android"
+  "iOS" "iOS"
+  "video_play" "视频播放"
+  "samples" "照做"
+  "create" "视频成功创建"
+  "film_create" "大片成功创建"
+  "video_create" "短片成功创建"
+  "share" "成功分享"
+  "newuser_create" "新用户创建"
+  "video_share" "视频分享"
+  "album_share" "影集分享"
+  "album_batch_create" "影集创建"
+  "scene_batch_create" "素材创建"
+  "video_play_place_digest" "短片热门播放"
+  "video_play_place_timeline" "短片最新播放"
+  "video_play_place_post" "短片剧组播放"
+  "video_play_place_friends" "短片关注播放"
+  "comply_create_place_digest" "照做热门"
+  "comply_create_place_timeline" "照做最新"
+  "comply_create_place_post" "照做剧组"
+  "comply_create_place_friends" "照做关注"
+  "play" "打开页面"
+  "download" "点击下载"
+  "ratio" "转化率(下载／打开)"
+  "mm" "微信"
+  "qq" "QQ"
+  "video" "短片"
+  "album" "影集"
+  "film" "大片"
+  "video_batch_create" "短片创建"
+  "all_access_api" "访问量"
+  "user_follow" "用户关注"
+  "user_unfollow" "用户取消关注"
+  "video_free" "短片自己成功创作"
+  "video_sample" "短片模版成功照做"
+  "video_station" "短片广场成功照做"
+  "film_free" "大片自己成功创作"
+  "film_sample" "大片模版成功照做"
+  "film_station" "大片广场成功照做"
+  "album_create" "影集成功创建"
+  "video_share_2" "短片成功分享"
+  "album_share_2" "影集成功分享"
+  "film_share" "大片成功分享"
+  "login_restart" "用户重启"
+  "login_reinstall" "用户重装"
+  "login_registered" "用户首次安装"
+  "login_upgrade" "用户升级"
+  "newbie_video" "新用户／视频总分享"
+  "newbie_active" "新用户(3天内的)／活跃用户(人数)"
+  "newbie_active_video_free_create" "活跃用户中的新用户(3天内的)／活跃用户(短片自己成功制作数)"
+  "newbie_active_video_sample_create" "活跃用户中的新用户(3天内的)／活跃用户(短片模版成功照做数)"
+  "newbie_active_video_station_create" "活跃用户中的新用户(3天内的)／活跃用户(短片广场成功照做数)"
+  "newbie_active_film_create" "活跃用户中新用户(3天内的)／活跃用户(高清制作数)"
+  "newbie_active_album_create" "活跃用户中新用户(3天内的)／活跃用户(影集制作数)"
+  "per_video" "短片制作／活跃用户"
+  "per_film" "高清制作／活跃用户"
+  "per_album" "影集制作／活跃用户"
+  "ratio_video_share" "短片分享／短片制作"
+  "ratio_album_share" "影集分享／影集制作"
+  "ratio_sample" "照做／视频制作"
+  "ratio_follow" "关注／活跃用户"
+  "ratio_like" "赞／活跃用户"
+"active_user" "活跃用户"
+"post_create" "创建剧组"
+"post_follow" "关注剧组"
+"post_upload_video" "上传视频到剧组"
+"post_upload_statuses" "上传素材到剧组"
+"post_play" "剧组中播放视频"
+"post_video_create" "剧组中短片创建"
+"post_film_create" "剧组中大片创建"
+"post_share" "剧组分享"
+"post_upload_photo" "上传照片成功到剧组"
+"post_upload_audio" "上传音频成功到剧组"
+"post_upload_scene" "上传场景成功到剧组"
+"post_upload_video_2" "上传视频成功到剧组"
+"not_match" "not_match"
+"matched" "matched"
+"matched_10001" "matched_旅行"
+"matched_10004" "matched_友情聚会"
+"matched_10003" "matched_家庭亲子"
+"matched_10002" "matched_恋爱表白"
+"matched_10005" "matched_生日祝福"
+"matched_10000" "matched_自己创作"
+"matched_10006" "matched_不开心"
+"matched_10007" "matched_中秋节"
+"matched_10008" "matched_幸福快乐"
+"matched_10009" "matched_生活回忆"
+"matched_10010" "matched_舞蹈"
+"matched_10011" "matched_海边"
+"matched_10012" "matched_教师节"
+"matched_10015" "matched_奋斗拼搏"
+"bug" "bug"
+}
+)
+
+(defn chinese [word] ; for date number (i.e "20151023")
+  (let [c (chinese2 word)]
+    (or c word)))
+
 (defn parse-date [date] (cf/parse (cf/formatter "yyyy-MM-dd") date))
 (defn unparse-date [date] (cf/unparse (cf/formatter "yyyy-MM-dd") date))
 (defn period-date [from to]
@@ -133,7 +241,8 @@
                                      (debug/prn response)
                                      (reset! stuff response)
                                      (swap! config assoc :series (vec (for [{name "name" data "data"} @stuff]
-                                                                        {:name name :data data})))
+                                                                        {:name (s/join "," (map chinese (s/split name #"-")))
+                                                                         :data data})))
                                      (swap! config assoc-in [:xAxis :categories] (period-date @from @to))
                                      )})
                     (GET "/sync-ios-versions" {:handler (fn [response] (reset! ios-versions response))})
@@ -246,18 +355,13 @@
 ;["display2" "2015-10-12"]]]
 ;["group2" [["display3" "2015-10-12"]
 ;["display4" "2015-10-14"]]]] "group"]])))
-(defn modal-window-button []
-  [:div.btn.btn-primary 
-   ;{:on-click #(reagent-modals/modal! [:div "some message to the user!"])} 
-   "My Modal"])
 
 (defn test-page []
-  [:div
-   [reagent-modals/modal-window]
-   ;; ATTNETION \/
-   [modal-window-button]
-   ;; ATTENTION /\
-   ])
+  [:div.container
+   [:div.row
+    [:p>b "This page is only for you!"]
+    [:p>b "So, so"]
+    [:p>b "Come on, BABY!"]]])
 
 ;(def form
 ;[:div
@@ -380,12 +484,12 @@
   [:div
    [date-component date]
    [select-component bi 
-    [["Group1" [["短片分享" "video_share"]
-                ["短片赞" "video_like"]
-                ["短片收藏" "video_fav"]
-                ["短片评论" "video_comment"]
-                ["短片播放" "video_play"]
-                ["短片创建" "video_batch_create"]
+    [["Group1" [["视频分享" "video_share"]
+                ["视频赞" "video_like"]
+                ["视频收藏" "video_fav"]
+                ["视频评论" "video_comment"]
+                ["视频播放" "video_play"]
+                ["视频创建" "video_batch_create"]
                 ["访问量" "all_access_api"]]]
      ["Group2" [["影集分享" "album_share"]
                 ["影集创建" "album_batch_create"]
@@ -458,7 +562,8 @@
                          :handler (fn [response]
                                     (reset! stuff response)
                                     (swap! config assoc :series (vec (for [{name "name" data "data"} @stuff]
-                                                                       {:name name :data data})))
+                                                                        {:name (s/join "," (map chinese (s/split name #"-")))
+                                                                        :data data})))
                                     )})
         syn-date (fn [] (reset! date2 ((:baz @radio2) (:foo @radio1))))
         _ (add-watch radio1 :sync syn-date)
