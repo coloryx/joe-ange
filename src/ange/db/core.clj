@@ -322,7 +322,7 @@
          ]
     res))
 
-(defn sample-query [date os platform age_zone gender]
+(defn sample-query [date os platform age_zone gender] ;;rename sample to detail
   (println (format "sample-query, date=%s, os=%s, platform=%s, age_zone=%s gender=%s"
                    date os platform age_zone gender))
   (let [date (parse-date date)
@@ -340,8 +340,11 @@
                            (bf % age_zone :age_zone)
                            (af % gender :gender))
         active-user (filter select-group
-                    (:detail (mc/find-one-as-map db "stat_daily_active_user_detail" {:day date})))
-        ret (->> (:detail (mc/find-one-as-map db "stat_daily_sample_detail" {:day date}))
+                            (:detail (mc/find-one-as-map db "stat_daily_active_user_detail" {:day date})))
+        video_play (filter select-group
+                           (:detail (mc/find-one-as-map db "stat_daily_video_play_detail" {:day date})))
+        ;ret (->> (:detail (mc/find-one-as-map db "stat_daily_sample_detail" {:day date}))
+        ret (->> (:detail (mc/find-one-as-map db "stat_daily_video_reference_detail" {:day date}))
               (filter select-group)
               (group-by #(get-in % [:user_info :version]))
               (map (fn [[version sample]]
@@ -354,7 +357,7 @@
                       (sum-count-place sample "friends")
                       (sum-count-place sample "user_detail")
                       (sum-count-place sample "recommend")
-                      ;(sum-count-version 
+                      (sum-count-version video_play version)
                       ])))
         ]
     ret))

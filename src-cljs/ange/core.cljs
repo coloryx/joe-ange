@@ -575,7 +575,7 @@
         ]
        (fn []
          (get-stuff)
-         (js/setInterval get-stuff (* 60 1000))
+         (js/setInterval get-stuff (* 10 60 1000))
          [:div.container
           [:div.row
            [rf/bind-fields mins-radio-component-head radio1]
@@ -930,8 +930,9 @@
 ;; sample
 
 (defn save-div [a b]
-  (let [save-b #(if (zero? %) 1 %)]
-    (/ a (save-b b))))
+  (let [save-b #(if (zero? %) 1 %)
+        res (/ a (save-b b))]
+    (.toFixed res 4)))
 
 (defn sample-page []
   (let [stuff (r/atom nil)
@@ -1009,7 +1010,8 @@
                [:th "剧组"]
                [:th "关注"]
                [:th "用户页"]
-               [:th "推荐"]]
+               [:th "推荐"]
+               [:th "用户播放视频数"]]
               (for [e @stuff]
                 [:tr
                  (for [u e]
