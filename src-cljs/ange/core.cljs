@@ -179,7 +179,6 @@
 (def ios-versions (r/atom []))
 (def and-versions (r/atom []))
 
-;;
 (defn select-versions-component [value]
   (fn []
     [:select
@@ -197,7 +196,7 @@
         [:option {:value v} v])]]))
 
 (defn button-component [text f]
-  [:button {:on-click (fn [e] (f))} text])
+  [:button {:on-click f} text])
 
 (defn graph-data [config id]
   (js/$ (fn []
@@ -957,9 +956,9 @@
                                             ;; add ratio to third element
                                             vecs (map (fn [v]
                                                         (assoc-in v [2]
-                                                                  (str (get v 2)
+                                                                  (str (v 2)
                                                                        " ("
-                                                                       (save-div (get v 2) (get v 1))
+                                                                       (save-div (v 2) (v 1))
                                                                        ")")))
                                                       vecs)]
                                         (reset! stuff vecs))))})

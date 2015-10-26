@@ -50,7 +50,9 @@
   :main ange.core
   :plugins [[lein-environ "1.0.1"]
             [lein-cljsbuild "1.1.0"]]
+
   :clean-targets ^{:protect false} [:target-path [:cljsbuild :builds :app :compiler :output-dir] [:cljsbuild :builds :app :compiler :output-to]]
+
   :cljsbuild
   {:externs ["externs.js"]
    :builds
@@ -61,17 +63,17 @@
       :output-dir "resources/public/js/out"
       :externs ["react/externs/react.js"]
       :pretty-print true}}}}
-  
+
   :profiles
   {:uberjar {:omit-source true
              :env {:production true}
-              :hooks [leiningen.cljsbuild]
-              :cljsbuild
-              {:builds
-               {:app
-                {:source-paths ["env/prod/cljs"]
-                 :compiler {:optimizations :advanced :pretty-print false}}}} 
-             
+             :hooks [leiningen.cljsbuild]
+             :cljsbuild
+             {:builds
+              {:app
+               {:source-paths ["env/prod/cljs"]
+                :compiler {:optimizations :advanced :pretty-print false}}}} 
+
              :aot :all}
    :dev           [:project/dev :profiles/dev]
    :test          [:project/test :profiles/test]
@@ -81,11 +83,11 @@
                                  [lein-figwheel "0.4.1"]
                                  [com.cemerick/piggieback "0.1.5"]]
                   :plugins [[lein-figwheel "0.4.1"]]
-                   :cljsbuild
-                   {:builds
-                    {:app
-                     {:source-paths ["env/dev/cljs"] :compiler {:source-map true}}}} 
-                  
+                  :cljsbuild
+                  {:builds
+                   {:app
+                    {:source-paths ["env/dev/cljs"] :compiler {:source-map true}}}} 
+
                   :figwheel
                   {:http-server-root "public"
                    :server-port 3449
@@ -93,7 +95,7 @@
                    :nrepl-middleware ["cemerick.piggieback/wrap-cljs-repl"]
                    :css-dirs ["resources/public/css"]
                    :ring-handler ange.handler/app}
-                  
+
                   :repl-options {:init-ns ange.core}
                   :injections [(require 'pjstadig.humane-test-output)
                                (pjstadig.humane-test-output/activate!)]
