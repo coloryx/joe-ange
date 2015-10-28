@@ -145,7 +145,7 @@
 (defn search-query [date cate]
   (println "search-query," date cate)
   (let [date (parse-date date)
-        ret (mc/find-one-as-map db (str "stat_daily_rank_query_word_" cate) {:day date})
+        ret (mc/find-one-as-map db (str "stat_daily_rank_search_word_" cate) {:day date})
         ret (:result ret)
         ret (seq (subvec ret 0 100)) ;;response is a seq
         ]
@@ -359,6 +359,7 @@
                       (sum-count-place sample "recommend")
                       (sum-count-version video_play version)
                       ])))
+        _ (println "ret=" ret)
         ]
     ret))
 
@@ -442,7 +443,8 @@
 (defn daily-table-query [from to]
   (log/info (format "daily-table-query from=%s to=%s" from to))
   (let [[from to] (map parse-date [from to])
-        date-arr (date-array from to)]
+        date-arr (date-array from to)
+        date-arr (reverse date-arr)]
     (list (mapv (partial get-data "ios") date-arr) 
           (mapv (partial get-data "and") date-arr)
           (mapv (partial get-data "all") date-arr))))

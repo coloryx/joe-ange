@@ -33,7 +33,8 @@
                            :max-size (* 512 1024)
                            :backlog 10})}})
 
-  (if (env :dev) (parser/cache-off!))
+  ;(if (env :dev) (parser/cache-off!))
+  (parser/cache-off!)
   ;(db/connect!)
   (timbre/info (str
                  "\n-=[ange started successfully"

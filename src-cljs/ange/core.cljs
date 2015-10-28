@@ -199,10 +199,9 @@
   [:button {:on-click f} text])
 
 (defn graph-data [config id]
-  (js/$ (fn []
-          (.highcharts (js/$ (str "#" id))
-                       (clj->js @config))))
-  [:p @config])
+  (.highcharts (js/$ (str "#" id))
+               (clj->js @config))
+  [:div])
 
 (defn graph [config id]
   [:div
@@ -232,7 +231,7 @@
                            :verticalAlign "middle"
                            :borderWidth 0}
                   :series [{:name "sample"
-                            :data [1 2 3]}]})
+                            :data [1 2 4]}]})
         get-stuff (fn [] 
                     (GET (str "/" getstr)
                          {:params {:from @from :to @to :ca (s/join "," @ca)}
@@ -358,6 +357,7 @@
 (defn test-page []
   [:div.container
    [:div.row
+    [:p>b "IIII"]
     [:p>b "This page is only for you!"]
     [:p>b "So, so"]
     [:p>b "Come on, BABY!"]]])
@@ -838,8 +838,29 @@
    [:th "剧组短片数"]
    [:th "剧组大片数"]])
 
+(defn render-compare-color [data] 
+  (for [j (range (count data))]
+    (let [oneday (data j)
+          lastday (when-not (= j (dec (count data)))
+                    (data (inc j)))]
+      (if (= j (dec (count data))) ;; lastest day no color
+        [:tr
+         (for [u oneday]
+           [:td u])]
+        [:tr
+         (for [i (range (count oneday))]
+           (let [u (oneday i)
+                 ul (lastday i)
+                 ret (compare u ul)]
+             (if (= i 0) ;; date no color
+               [:td u]
+               (case ret
+                 1  [:td {:style {:color "red"}} u]
+                 -1 [:td {:style {:color "green"}} u]
+                 0  [:td u]))))]))))
+
 (defn daily-table-page []
-  (let [stuff (r/atom nil)
+  (let [stuff (r/atom [])
         from (r/atom lastweekday-of-yesterday)
         to (r/atom yesterday)
         get-stuff #(GET "/daily-table"
@@ -847,7 +868,8 @@
                                   :to @to}
                          :handler (fn [response]
                                     (debug/prn "daily-table-response=" response)
-                                    (reset! stuff response))})
+                                    (reset! stuff response)
+                                    )})
         _ (add-watch from :get get-stuff)
         _ (add-watch to :get get-stuff)
         ]
@@ -857,35 +879,25 @@
          [:div
           [date-component from]
           [date-component to]
-          [:div
-           [:label "Android"]
-           [:table.table.table-bordered.table-striped
-            [:tbody
-             daily-th
-             (for [e (first @stuff)]
-               [:tr
-                (for [u e]
-                  [:td u])])
-             ]]]
+
           [:div
            [:label "iOS"]
            [:table.table.table-bordered.table-striped
             [:tbody
              daily-th
-             (for [e (second @stuff)]
-               [:tr
-                (for [u e]
-                  [:td u])])
-             ]]]
+             (render-compare-color (first @stuff))]]]
           [:div
-           [:label "Andorid + iOS"]
+           [:label "Android"]
            [:table.table.table-bordered.table-striped
             [:tbody
              daily-th
-             (for [e (last @stuff)]
-               [:tr
-                (for [u e]
-                  [:td u])])]]]])
+             (render-compare-color (second @stuff))]]]
+          [:div
+           [:label "iOS + Android"]
+           [:table.table.table-bordered.table-striped
+            [:tbody
+             daily-th
+             (render-compare-color (last @stuff))]]]])
        :component-did-mount
        (fn [this]
          (get-stuff))})))
@@ -917,12 +929,24 @@
              [:tbody
               [:tr
                [:th "数量"]
-               [:th "链接"]]
+               [:th "视频链接"]
+               [:th "后台链接"]
+               [:th "删除并封禁"]]
               (for [e @stuff]
+                (let [video-id (str (first e))]
                 [:tr
                  [:td (second e)]
-                 [:td [:a {:href (str "http://video.colorv.cn/play/" (str (first e)))}
-                       [:img {:src (last e) :height 100 :width 200}]]]])]]]]])
+                 [:td [:a {:target "_blank"
+                           :href (str "http://video.colorv.cn/play/" video-id)}
+                       [:img {:src (last e) :height 100 :width 200}]]]
+                 [:td [:a {:target "_black"
+                           :href (str "http://120.26.123.32/mng/video/" video-id)}
+                       (str "http://120.26.123.32/mng/video/" video-id)]]
+                 [:td [:a {:target "_blank"
+                           :on-click #(js/confirm "确定删？")
+                           :href (str "http://120.26.123.32/mng/video/removetrue/video," video-id "?freeze=1")}
+                       "删除并封禁"]]
+                 ]))]]]]])
        :component-did-mount
        (fn [this]
          (get-stuff))})))
