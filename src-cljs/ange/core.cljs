@@ -802,7 +802,7 @@
 
 ;; daily-table
 
-(def daily-th2
+#_(def daily-th2
   [:tr
    [:th "日期"]
    [:th "新用户数"]
@@ -899,32 +899,22 @@
 
           [:div
            [:label "iOS"]
-           [:table.table.table-bordered.table-striped {:border 19}
+           [:table.table.table-bordered.table-striped
             [:tbody
-             [:tr [:th {:colspan 4} "ssss"]]
              daily-th
-             (render-compare-color (first @stuff))
-             ]]]
-
-          ;[:div
-           ;[:label "Android"]
-           ;[:table.table.table-bordered.table-striped
-            ;[:tbody
-             ;daily-th
-             ;;daily-th2
-             ;(render-compare-color (second @stuff))]]]
-          ;[:div
-           ;[:label "iOS + Android"]
-           ;[:table.table.table-bordered.table-striped
-            ;[:tbody
-             ;daily-th
-             ;;daily-th2
-             ;(render-compare-color (last @stuff))]]]
-
-          ;(edn->hiccup (first @stuff))
-
-
-          ])
+             (render-compare-color (first @stuff))]]]
+          [:div
+           [:label "Android"]
+           [:table.table.table-bordered.table-striped
+            [:tbody
+             daily-th
+             (render-compare-color (second @stuff))]]]
+          [:div
+           [:label "iOS + Android"]
+           [:table.table.table-bordered.table-striped
+            [:tbody
+             daily-th
+             (render-compare-color (last @stuff))]]]])
        :component-did-mount
        (fn [this]
          (get-stuff))})))
