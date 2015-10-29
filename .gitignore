@@ -8,10 +8,5 @@ pom.xml
 /.lein-*
 /.env
 *.log
-resources/public/js
-
+resources/public/js/out
 *.swp
-
-*.swp
-
-src/ange/db/.core.clj.swp
