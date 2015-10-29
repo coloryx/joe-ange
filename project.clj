@@ -26,7 +26,9 @@
                  [com.novemberain/monger "3.0.0-rc2"]
                  [org.clojure/clojurescript "1.7.145" :scope "provided"]
                  [org.clojure/tools.reader "0.10.0"]
-                 [reagent "0.5.1"]
+                 ;[reagent "0.5.1"]
+                 [reagent "0.5.1" :exclusions [cljsjs/react]]
+                 [cljsjs/react-with-addons "0.13.3-0"]
                  [reagent-forms "0.5.12"]
                  [reagent-utils "0.1.5"]
                  [secretary "1.2.3"]
@@ -36,11 +38,10 @@
 
                  [clj-time "0.8.0"]
                  [com.andrewmcveigh/cljs-time "0.3.14"]
-                 ;[cljsjs/echarts "2.2.7-0"]
-                 ;[jayq "2.5.4"]
-                 [reagent-forms "0.5.1"]
+                 [reagent-forms "0.5.8"]
                  [cljsjs/react "0.13.1-0"] 
                  [org.clojars.frozenlock/reagent-modals "0.2.3"]
+                 [json-html "0.3.5"]
                  ]
 
   :min-lein-version "2.0.0"

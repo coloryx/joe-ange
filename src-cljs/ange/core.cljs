@@ -12,7 +12,9 @@
             [cljs-time.core :as ct]
             [cljs-time.periodic :as cp]
             [cljs-time.format :as cf]
-            [reagent-forms.core :as rf]
+
+            [json-html.core :refer [edn->hiccup edn->html json->html]]
+            [reagent-forms.core :as rf :refer [bind-fields init-field value-of]]
             [reagent-modals.modals :as reagent-modals]
             )
   (:import goog.History))
@@ -295,9 +297,9 @@
          (when-not @collapsed? {:class "in"})
          [:ul.nav.navbar-nav
          ;[:ul.nav.nav-pills
-          [nav-link "#/" "Home" :home collapsed?]
-          [nav-link "#/about" "About" :about collapsed?]
-          [nav-link "#/test" "Test" :test collapsed?]
+          ;[nav-link "#/" "Home" :home collapsed?]
+          ;[nav-link "#/about" "About" :about collapsed?]
+          ;[nav-link "#/test" "Test" :test collapsed?]
           [nav-link "#/day" "Day" :day collapsed?]
           [nav-link "#/mins" "Mins" :mins collapsed?]
           [nav-link "#/ratio" "Ratio" :ratio collapsed?]
@@ -310,6 +312,7 @@
           [nav-link "#/sample" "Sample" :sample collapsed?]
           [nav-link "#/compare" "Compare" :compare collapsed?]
           [nav-link "#/search" "Search" :search collapsed?]
+          [nav-link "#/test" "Test" :test collapsed?]
           ]]]])))
 
 (defn home-page []
@@ -335,45 +338,37 @@
 
 ;; test
 
-(defn atom-input [value]
-  [:input {:type "text"
-           :value @value
-           :on-change #(reset! value (-> % .-target .-value))}])
-
-;(defn test-page []
-;(let [val (r/atom "2015-10-11")]
-;(fn []
-;[:div
-;[atom-input val]
-;[atom-input val]
-;[date-component val]
-;[select-component val [["display1" "2015-10-11"]
-;["display2" "2015-10-12"]]]
-;[select-component val [["group1" [["display1" "2015-10-11"]
-;["display2" "2015-10-12"]]]
-;["group2" [["display3" "2015-10-12"]
-;["display4" "2015-10-14"]]]] "group"]])))
-
 (defn test-page []
+  (let [from (r/atom lastweekday-of-yesterday)
+        ]
+    (fn []
   [:div.container
    [:div.row
-    [:p>b "IIII"]
-    [:p>b "This page is only for you!"]
-    [:p>b "So, so"]
-    [:p>b "Come on, BABY!"]]])
 
-;(def form
-;[:div
-;[:input {:field :radio :value :a :name :foo :id :radioselection} "foo"]
-;[:input {:field :radio :value :b :name :foo :id :radioselection} "bar"]
-;[:input {:field :radio :value :c :name :foo :id :radioselection} "baz"]])
+    [:table.table.table-bordered
+     [:tbody
+      [:tr
+       [:th {:colspan "2"} "2"]]
+      [:tr
+       [:th 1]
+       [:th 2]]]]
 
-;(defn test-page []
-;(let [doc (r/atom {:radioselection :b})]
-;(fn []
-;[:div
-;[rf/bind-fields form doc]
-;[:label (str @doc)]])))
+    [date-component from]
+
+   (edn->hiccup {:foo [1 2 @from] :bar "baz"})
+
+   (edn->hiccup {:foo {:a 1 :b 2} :bar "baz"})
+
+    [:div.jh-type-object
+     [:table.jh-type-object
+      [:tbody
+       ;(for [[k v] {:a 1 :b 2 :c 4}]
+       (for [[k v] (zipmap (range 4) [40 5 6 7])]
+         ^{:key k} [:tr
+                    [:th k]
+                    [:td v]])]]]
+
+    ]])))
 
 ;; day-page
 
@@ -807,31 +802,53 @@
 
 ;; daily-table
 
+(def daily-th2
+  [:tr
+   [:th "日期"]
+   [:th "新用户数"]
+   [:th "新用户数／总视频分享数(转化率)"]
+   [:th "活跃用户数"]
+
+   [:th {:colspan "6"} "视频创建"]
+   [:th {:colspan "6"} "视频分享"]
+   [:th {:colspan "2"} "照做"]
+   [:th {:colspan "2"} "关注"]
+   [:th "收藏数"]
+   [:th {:colspan "2"} "赞"]
+   [:th {:colspan "5"} "剧组"]])
+
 (def daily-th
   [:tr
    [:th "日期"]
    [:th "新用户数"]
    [:th "新用户数／总视频分享数(转化率)"]
    [:th "活跃用户数"]
+
    [:th "短片创作数"]
    [:th "高清创作数"]
    [:th "影集创作数"]
    [:th "短片创作数／活跃用户数"]
    [:th "高清创作数／活跃用户数"]
    [:th "影集创作数／活跃用户数"]
+
    [:th "短片分享数"]
    [:th "高清分享数"]
    [:th "影集分享数"]
    [:th "短片分享数／短片创作数"]
    [:th "高清分享数／高清创作数"]
    [:th "影集分享数／影集创作数"]
+
    [:th "照做数"]
    [:th "（短片创作数＋高清创作数）／照做数"]
+
    [:th "关注数"]
    [:th "关注数／活跃用户数"]
+
    [:th "收藏数"]
+
    [:th "赞数"]
    [:th "赞数／活跃用户数"]
+
    [:th "加入剧组数"]
    [:th "新建剧组数"]
    [:th "上传素材数"]
@@ -882,22 +899,32 @@
 
           [:div
            [:label "iOS"]
-           [:table.table.table-bordered.table-striped
+           [:table.table.table-bordered.table-striped {:border 19}
             [:tbody
+             [:tr [:th {:colspan 4} "ssss"]]
              daily-th
-             (render-compare-color (first @stuff))]]]
-          [:div
-           [:label "Android"]
-           [:table.table.table-bordered.table-striped
-            [:tbody
-             daily-th
-             (render-compare-color (second @stuff))]]]
-          [:div
-           [:label "iOS + Android"]
-           [:table.table.table-bordered.table-striped
-            [:tbody
-             daily-th
-             (render-compare-color (last @stuff))]]]])
+             (render-compare-color (first @stuff))
+             ]]]
+
+          ;[:div
+           ;[:label "Android"]
+           ;[:table.table.table-bordered.table-striped
+            ;[:tbody
+             ;daily-th
+             ;;daily-th2
+             ;(render-compare-color (second @stuff))]]]
+          ;[:div
+           ;[:label "iOS + Android"]
+           ;[:table.table.table-bordered.table-striped
+            ;[:tbody
+             ;daily-th
+             ;;daily-th2
+             ;(render-compare-color (last @stuff))]]]
+
+          ;(edn->hiccup (first @stuff))
+
+
+          ])
        :component-did-mount
        (fn [this]
          (get-stuff))})))
@@ -1124,9 +1151,9 @@
 ;;;
 
 (def pages
-  {:home #'home-page
-   :about #'about-page
-   :test #'test-page
+  {
+   ;:home #'home-page
+   ;:about #'about-page
    :day #'day-page
    :mins #'mins-page
    :ratio #'ratio-page
@@ -1139,6 +1166,7 @@
    :rank #'rank-page
    :compare #'compare-page
    :search #'search-page
+   :test #'test-page
    })
 
 (defn page []
@@ -1148,9 +1176,8 @@
 ;; Routes
 (secretary/set-config! :prefix "#")
 
-(secretary/defroute "/" [] (session/put! :page :home))
-(secretary/defroute "/about" [] (session/put! :page :about))
-(secretary/defroute "/test" [] (session/put! :page :test))
+;(secretary/defroute "/" [] (session/put! :page :home))
+;(secretary/defroute "/about" [] (session/put! :page :about))
 (secretary/defroute "/day" [] (session/put! :page :day))
 (secretary/defroute "/mins" [] (session/put! :page :mins))
 (secretary/defroute "/ratio" [] (session/put! :page :ratio))
@@ -1161,8 +1188,9 @@
 (secretary/defroute "/daily-table" [] (session/put! :page :daily-table))
 (secretary/defroute "/rank" [] (session/put! :page :rank))
 (secretary/defroute "/sample" [] (session/put! :page :sample))
-(secretary/defroute "/search" [] (session/put! :page :search))
 (secretary/defroute "/compare" [] (session/put! :page :compare))
+(secretary/defroute "/search" [] (session/put! :page :search))
+(secretary/defroute "/test" [] (session/put! :page :test))
 
 ;; -------------------------
 ;; History

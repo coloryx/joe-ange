@@ -10,3 +10,9 @@ profiles.clj
 /.env
 *.log
 resources/public/js
+
+*.swp
+
+*.swp
+
+src/ange/db/.core.clj.swp
