@@ -927,7 +927,9 @@
         cate (r/atom "rank200_video_station_create")
         get-stuff #(GET "/rank" 
                         {:params {:date @date :cate @cate}
-                         :handler (fn [response] (reset! stuff response))})
+                         :handler (fn [response] 
+                                    (debug/prn "response=" response)
+                                    (reset! stuff response))})
         _ (add-watch date :get get-stuff)
         _ (add-watch cate :get get-stuff)
         ]
@@ -949,21 +951,24 @@
                [:th "视频链接"]
                [:th "后台链接"]
                [:th "删除并封禁"]]
-              (for [e @stuff]
-                (let [video-id (str (first e))]
+              (for [[vid number jpg deleted?] @stuff]
                 [:tr
-                 [:td (second e)]
+                 [:td number]
                  [:td [:a {:target "_blank"
-                           :href (str "http://video.colorv.cn/play/" video-id)}
-                       [:img {:src (last e) :height 100 :width 200}]]]
-                 [:td [:a {:target "_black"
-                           :href (str "http://120.26.123.32/mng/video/" video-id)}
-                       (str "http://120.26.123.32/mng/video/" video-id)]]
+                           :href (str "http://video.colorv.cn/play/" vid)}
+                       [:img {:src jpg :height 100 :width 200}]]]
                  [:td [:a {:target "_blank"
-                           :on-click #(js/confirm "确定删？")
-                           :href (str "http://120.26.123.32/mng/video/removetrue/video," video-id "?freeze=1")}
-                       "删除并封禁"]]
-                 ]))]]]]])
+                           :href (str "http://120.26.123.32/mng/video/" vid)}
+                       (str "http://120.26.123.32/mng/video/" vid)]]
+                 [:td 
+                  (if (= "deleted" deleted?)
+                    [:p "已删除"]
+                    [:a {:target "_blank"
+                         :on-click #((when (js/confirm "确定删？")
+                                       (GET "/rank-delete" {:params {:vid vid}})))
+                         :href (str "http://120.26.123.32/mng/video/removetrue/video," vid "?freeze=1")}
+                     "删除并封禁"])]
+                 ])]]]]])
        :component-did-mount
        (fn [this]
          (get-stuff))})))

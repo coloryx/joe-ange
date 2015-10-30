@@ -16,6 +16,7 @@
   (GET "/" [] (home-page))
   (GET "/docs" [] (ok (-> "docs/docs.md" io/resource slurp)))
   (GET "/rank" [date cate] (db/rank-query date cate))
+  (GET "/rank-delete" [vid] (db/rank-delete vid))
   (GET "/search" [date cate] (db/search-query date cate))
   (GET "/day" [ca from to] (map #(db/day-query % from to) (s/split ca #",")))
   (GET "/access" [ca from to] (map #(db/day-access % from to) (s/split ca #",")))

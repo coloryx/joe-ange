@@ -130,17 +130,23 @@
         _ (log/info "rank-query, ret=completed" (first ret))
         ret2 (->> ret
                (remove #(#{:_id :day} (key %)))
-               (sort #(> (val %1) (val %2))))
+               (sort-by val >))
         _ (log/info "rank-query, ret2=completed" (first ret2))
-        ret3 (map (fn [e]
-                     (let [vid (s/replace (str (first e)) ":" "")]
-                       (conj e
-                             (str "http://cdn-web-qn.colorv.cn/"
-                                  (get-in (mc/find-one-as-map db "video_logo_path" {:video_id vid}) [:info :logo_path])))))
-                   ret2)
+        ret3 (map (fn [[vid _ :as e]]
+                    (conj e (str "http://cdn-web-qn.colorv.cn/" (get-in (mc/find-one-as-map db "video_logo_path" {:video_id vid}) [:info :logo_path]))))
+                  ret2)
         _ (log/info "rank-query, ret3=completed" (first ret3))
+        ret4 (map (fn [[vid _ _ :as e]]
+                    (conj e (if (mc/find-one-as-map db "rank200_deleted_video_id" {:_id vid}) "deleted" "not-deleted")))
+                  ret3)
+        _ (log/info "rank-query, ret4=completed" (first ret4))
         ]
-    ret3))
+    ret4))
+
+(defn rank-delete [vid]
+  (println "ranke-delete," vid)
+  (mc/insert db "rank200_deleted_video_id" {:_id vid})
+  "ok")
 
 (defn search-query [date cate]
   (println "search-query," date cate)
