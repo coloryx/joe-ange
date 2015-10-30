@@ -214,7 +214,7 @@
 
 (defn chart-unity-component [multi-selects-component getstr graph-id cominit]
   (let [stuff (r/atom [])
-        from (r/atom lastweekday-of-yesterday)
+        from (r/atom lastmonthday-of-yesterday)
         to (r/atom yesterday)
         compound (r/atom cominit)
         ca (r/atom #{})
@@ -348,7 +348,7 @@
     [:table.table.table-bordered
      [:tbody
       [:tr
-       [:th {:colspan "2"} "2"]]
+       [:th {:col-span "2"} "2"]]
       [:tr
        [:th 1]
        [:th 2]]]]
@@ -802,58 +802,61 @@
 
 ;; daily-table
 
-#_(def daily-th2
+(def daily-th2
   [:tr
-   [:th "日期"]
-   [:th "新用户数"]
-   [:th "新用户数／总视频分享数(转化率)"]
-   [:th "活跃用户数"]
+   [:th ""]
+   [:th {:col-span "3"} "用户"]
+   [:th {:col-span "2"} "短片创建"]
+   [:th {:col-span "2"} "高清创建"]
+   [:th {:col-span "2"} "影集创建"]
+   [:th {:col-span "2"} "短片分享"]
+   [:th {:col-span "2"} "高清分享"]
+   [:th {:col-span "2"} "影集分享"]
+   [:th {:col-span "2"} "照做"]
+   [:th {:col-span "2"} "关注"]
+   [:th {:col-span "2"} "收藏"]
+   [:th {:col-span "2"} "赞"]
+   [:th {:col-span "5"} "剧组"]])
 
-   [:th {:colspan "6"} "视频创建"]
-   [:th {:colspan "6"} "视频分享"]
-   [:th {:colspan "2"} "照做"]
-   [:th {:colspan "2"} "关注"]
-   [:th "收藏数"]
-   [:th {:colspan "2"} "赞"]
-   [:th {:colspan "5"} "剧组"]])
-
-(def daily-th
+(def daily-th-fact
   [:tr
-   [:th "日期"]
-   [:th "新用户数"]
-   [:th "新用户数／总视频分享数(转化率)"]
-   [:th "活跃用户数"]
+   [:th ""]
 
-   [:th "短片创作数"]
-   [:th "高清创作数"]
-   [:th "影集创作数"]
-   [:th "短片创作数／活跃用户数"]
-   [:th "高清创作数／活跃用户数"]
-   [:th "影集创作数／活跃用户数"]
+   [:th "新"]
+   [:th "转化率"]
+   [:th "活跃"]
 
-   [:th "短片分享数"]
-   [:th "高清分享数"]
-   [:th "影集分享数"]
-   [:th "短片分享数／短片创作数"]
-   [:th "高清分享数／高清创作数"]
-   [:th "影集分享数／影集创作数"]
+   [:th ""]
+   [:th "人均"]
+   [:th ""]
+   [:th "人均"]
+   [:th ""]
+   [:th "人均"]
 
-   [:th "照做数"]
-   [:th "（短片创作数＋高清创作数）／照做数"]
+   [:th ""]
+   [:th "分享率"]
+   [:th ""]
+   [:th "分享率"]
+   [:th ""]
+   [:th "分享率"]
 
-   [:th "关注数"]
-   [:th "关注数／活跃用户数"]
+   [:th ""]
+   [:th "照做率"]
 
-   [:th "收藏数"]
+   [:th ""]
+   [:th "关注率"]
 
-   [:th "赞数"]
-   [:th "赞数／活跃用户数"]
+   [:th ""]
+   [:th "收藏率"]
 
-   [:th "加入剧组数"]
-   [:th "新建剧组数"]
-   [:th "上传素材数"]
-   [:th "剧组短片数"]
-   [:th "剧组大片数"]])
+   [:th ""]
+   [:th "赞率"]
+
+   [:th "加入"]
+   [:th "新建"]
+   [:th "素材"]
+   [:th "短片"]
+   [:th "大片"]])
 
 (defn render-compare-color [data] 
   (for [j (range (count data))]
@@ -876,6 +879,15 @@
                  -1 [:td {:style {:color "green"}} u]
                  0  [:td u]))))]))))
 
+(defn daily-table [label data]
+  [:div
+   [:label label]
+   [:table.table.table-bordered.table-striped
+    [:tbody
+     daily-th2
+     daily-th-fact
+     (render-compare-color data)]]])
+
 (defn daily-table-page []
   (let [stuff (r/atom [])
         from (r/atom lastweekday-of-yesterday)
@@ -896,25 +908,9 @@
          [:div
           [date-component from]
           [date-component to]
-
-          [:div
-           [:label "iOS"]
-           [:table.table.table-bordered.table-striped
-            [:tbody
-             daily-th
-             (render-compare-color (first @stuff))]]]
-          [:div
-           [:label "Android"]
-           [:table.table.table-bordered.table-striped
-            [:tbody
-             daily-th
-             (render-compare-color (second @stuff))]]]
-          [:div
-           [:label "iOS + Android"]
-           [:table.table.table-bordered.table-striped
-            [:tbody
-             daily-th
-             (render-compare-color (last @stuff))]]]])
+          [daily-table "iOS" (first @stuff)]
+          [daily-table "Android" (second @stuff)]
+          [daily-table "iOS + Android" (last @stuff)]])
        :component-did-mount
        (fn [this]
          (get-stuff))})))

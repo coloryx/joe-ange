@@ -72,12 +72,21 @@
     "iOS" "ios"
     os))
 
+(defn save-b [b]
+  (if (zero? b) 1 b))
+
 (defn pcs [a b]
-  (let [save-b #(if (zero? %) 1 %)]
-    (->> (/ a (save-b b))
-      (bigdec)
-      (with-precision 4)
-      (double))))
+  (->> (/ a (save-b b))
+    (bigdec)
+    (with-precision 4)
+    (double)))
+
+(defn pcs% [a b]
+  (->> (/ a (save-b b))
+    (* 100)
+    (bigdec)
+    (with-precision 4)
+    (double)))
 
 (defn parse-date [date] ;; "2015-10-15" => Date(2015-10-15)  +08timezone
   (let [format-date #(mapv to-int (rest (re-matches #"(\d{4})-(\d{2})-(\d{2})" %)))]
@@ -403,7 +412,7 @@
         all-video-share (+ (get-field db "stat_daily_video_share" {:day date} "sum-count-all")
                            (get-field db "stat_daily_film_share" {:day date} "sum-count-all")
                            (get-field db "stat_daily_album_share_2" {:day date} "sum-count-all"))
-        active-user (get-field db "stat_daily_active_user" {:day date} "sum-user-all")
+        active-user (get-field db "stat_daily_active_user" {:day date} (str "sum-user-" os))
         video-create (get-field db "stat_daily_video_create" {:day date} field)
         film-create (get-field db "stat_daily_film_create" {:day date} field)
         album-create (get-field db "stat_daily_album_create" {:day date} field)
@@ -417,27 +426,28 @@
         ]
     [(tf/unparse (tf/formatter "yyyy-MM-dd") date)
      new-user
-     (pcs new-user all-video-share)
+     (pcs% new-user all-video-share)
      active-user
      video-create
-     film-create
-     album-create
      (pcs video-create active-user)
+     film-create
      (pcs film-create active-user)
+     album-create
      (pcs album-create active-user)
      video-share
+     (pcs% video-share video-create)
      film-share
+     (pcs% film-share film-create)
      album-share
-     (pcs video-share video-create)
-     (pcs film-share film-create)
-     (pcs album-share album-create)
+     (pcs% album-share album-create)
      sample
-     (pcs (+ video-create film-create) sample)
+     (pcs% sample (+ video-create film-create))
      follow
-     (pcs follow active-user)
+     (pcs% follow active-user)
      fav
+     (pcs% fav active-user)
      like
-     (pcs like active-user)
+     (pcs% like active-user)
      (get-field db "stat_daily_post_follow" {:day date} field)
      (get-field db "stat_daily_post_create" {:day date} field)
      (get-field db "stat_daily_post_upload_statuses" {:day date} field)
