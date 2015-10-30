@@ -515,14 +515,14 @@
 
 (def mins-radio-component-head
   [:div
-   [:input {:field :radio :value today :name :foo} "今天"]
-   [:input {:field :radio :value yesterday :name :foo} "昨天"]])
+   [:label>input {:field :radio :value today :name :foo} "今天"]
+   [:label>input {:field :radio :value yesterday :name :foo} "昨天"]])
 
 (def mins-radio-component-bottom
   [:div {:style {:text-align "center"}}
    [:label "对比："]
-   [:input {:field :radio :value before1 :name :baz} "前一日"]
-   [:input {:field :radio :value before7 :name :baz} "上周同期"]])
+   [:label>input {:field :radio :value before1 :name :baz} "前一日"]
+   [:label>input {:field :radio :value before7 :name :baz} "上周同期"]])
 
 (defn mins-page []
   (let [stuff (r/atom nil)
