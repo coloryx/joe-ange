@@ -14,8 +14,8 @@
 
 ;; Tries to get the Mongo URI from the environment variable
 (defonce db (let [uri (:database-url env)
-                  _ (println "debug, env=" env)
-                  _ (println "debug, uri=" uri)
+                  ;_ (println "debug, env=" env)
+                  ;_ (println "debug, uri=" uri)
                   {:keys [db]} (mg/connect-via-uri uri)]
               db))
 
