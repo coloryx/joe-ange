@@ -14,6 +14,12 @@ To start a web server for the application, run:
 
     lein run
 
+To auto cljs, run:
+    
+    lein figwheel
+    or
+    rlwrap lein figwheel
+
 ## License
 
 Copyright © 2015 FIXME
