@@ -226,6 +226,7 @@
                              :x -20}
                   :xAxis {:categories []}
                   :yAxis {:title {:text "数量"}
+                          :min 0
                           :plotLines [{:value 0 :width 1 :color "#808080"}]}
                   :tooltip {:valueSuffix ""}
                   :legend {:layout "vertical"
@@ -542,6 +543,7 @@
                              :x -20}
                   :xAxis {:categories period-10mins-oneday}
                   :yAxis {:title {:text "数量"}
+                          :min 0
                           :plotLines [{:value 0 :width 1 :color "#808080"}]}
                   :tooltip {:valueSuffix "个"}
                   :legend {:layout "vertical"
