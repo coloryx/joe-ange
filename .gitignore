@@ -11,3 +11,5 @@ pom.xml
 resources/public/js/out
 resources/public/js/out/app.js
 *.swp
+
+resources/public/js/app.js
