@@ -9,4 +9,5 @@ pom.xml
 /.env
 *.log
 resources/public/js/out
+resources/public/js/out/app.js
 *.swp
