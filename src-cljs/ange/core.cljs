@@ -343,33 +343,38 @@
   (let [from (r/atom lastweekday-of-yesterday)
         ]
     (fn []
-  [:div.container
-   [:div.row
+      [:div.container
+       [:div.row
 
-    [:table.table.table-bordered
-     [:tbody
-      [:tr
-       [:th {:col-span "2"} "2"]]
-      [:tr
-       [:th 1]
-       [:th 2]]]]
+        [:a {:target "_blank"
+             :on-click (fn []
+                         (if (js/confirm "del?")
+                           (debug/prn "del")
+                           false))
+             :href (str "http://www.17173.com")}
+         "de"]
 
-    [date-component from]
+        [:p]
 
-   (edn->hiccup {:foo [1 2 @from] :bar "baz"})
-
-   (edn->hiccup {:foo {:a 1 :b 2} :bar "baz"})
-
-    [:div.jh-type-object
-     [:table.jh-type-object
-      [:tbody
-       ;(for [[k v] {:a 1 :b 2 :c 4}]
-       (for [[k v] (zipmap (range 4) [40 5 6 7])]
-         ^{:key k} [:tr
-                    [:th k]
-                    [:td v]])]]]
-
-    ]])))
+        [:table.table.table-bordered
+         [:tbody
+          [:tr
+           [:th {:col-span "2"} "2"]]
+          [:tr
+           [:th 1]
+           [:th 2]]]]
+        [date-component from]
+        (edn->hiccup {:foo [1 2 @from] :bar "baz"})
+        (edn->hiccup {:foo {:a 1 :b 2} :bar "baz"})
+        [:div.jh-type-object
+         [:table.jh-type-object
+          [:tbody
+           ;(for [[k v] {:a 1 :b 2 :c 4}]
+           (for [[k v] (zipmap (range 4) [40 5 6 7])]
+             ^{:key k} [:tr
+                        [:th k]
+                        [:td v]])]]]
+        ]])))
 
 ;; day-page
 
@@ -763,6 +768,16 @@
    [:th "创作总数"]
    [:th "创作总数／活跃用户数"]])
 
+(defn version-table [os data]
+  [:div
+   [:table.table.table-bordered.table-striped
+    [:tbody
+     (version-table-tr os)
+     (for [e data]
+       [:tr
+        (for [u e]
+          [:td u])])]]])
+
 (defn version-table-page []
   (let [stuff-and (r/atom nil)
         stuff-ios (r/atom nil)
@@ -782,22 +797,8 @@
          [:div.container
           [:div.row
            [date-component date]
-           [:div
-            [:table.table.table-bordered.table-striped
-             [:tbody
-              (version-table-tr "android")
-              (for [e @stuff-and]
-                [:tr
-                 (for [u e]
-                   [:td u])])]]]
-           [:div
-            [:table.table.table-bordered.table-striped
-             [:tbody
-              (version-table-tr "ios")
-              (for [e @stuff-ios]
-                [:tr
-                 (for [u e]
-                   [:td u])])]]]]])
+           [version-table "android" @stuff-and]
+           [version-table "ios" @stuff-ios]]])
        :component-did-mount
        (fn [this]
          (get-stuff))})))
@@ -907,12 +908,13 @@
     (r/create-class
       {:reagent-render
        (fn []
-         [:div
+         [:div.container
+          [:div.row
           [date-component from]
           [date-component to]
           [daily-table "iOS" (first @stuff)]
           [daily-table "Android" (second @stuff)]
-          [daily-table "iOS + Android" (last @stuff)]])
+          [daily-table "iOS + Android" (last @stuff)]]])
        :component-did-mount
        (fn [this]
          (get-stuff))})))
@@ -962,8 +964,10 @@
                   (if (= "deleted" deleted?)
                     [:p "已删除"]
                     [:a {:target "_blank"
-                         :on-click #((when (js/confirm "确定删？")
-                                       (GET "/rank-delete" {:params {:vid vid}})))
+                         :on-click (fn []
+                                     (if (js/confirm "确定删？")
+                                       (GET "/rank-delete" {:params {:vid vid}})
+                                       false)) ;; false to prevent href
                          :href (str "http://120.26.123.32/mng/video/removetrue/video," vid "?freeze=1")}
                      "删除并封禁"])]
                  ])]]]]])
